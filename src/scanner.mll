@@ -70,16 +70,16 @@ rule token = parse
 
     | "float"(float_wid as w) { FLOAT_T(int_of_string w) }
 
-    | "string"  { STRING_T   }
-    | "Type"    { TYPE_T     } | "Array"    { ARRAY_T    }
-    | "Func"    { FUNCTION_T } | "Template" { TEMPLATE_T }
-    | "None"    { NONE_T     }
+    | "string"  { STRING_T }
+    | "Type"    { TYPE_T   } | "Array"    { ARRAY_T    }
+    | "Func"    { FUNC_T   } | "Template" { TEMPLATE_T }
+    | "None"    { NONE_T   }
 
     (* Literals *)
-    | (int_const | hex_const | bin_const) as i { INT(i)    }
-    | float_const as f                         { FLOAT(f)  }
-    | '"'  ([^'"']  as s) '"'                  { STRING(s) }
-    | '\'' ([^'\''] as s) '\''                 { STRING(s) }
+    | (int_const | hex_const | bin_const) as i { INT(int_of_string i)     }
+    | float_const as f                         { FLOAT(float_of_string f) }
+    | '"'  ([^'"']*  as s) '"'                  { STRING(s) }
+    | '\'' ([^'\'']* as s) '\''                 { STRING(s) }
 
     | eof   { EOF }
 
