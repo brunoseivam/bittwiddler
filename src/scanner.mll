@@ -33,7 +33,6 @@ rule token = parse
     | '{'  { LBRACE } | '}'  { RBRACE }
     | '['  { LBRACK } | '}'  { RBRACK }
     | '<'  { LANGLE } | '>'  { RANGLE }
-    | '\'' { SQUOTE } | '"'  { DQUOTE }
 
     (* Keywords *)
     | "template" { TEMPLATE  } | "parse"  { PARSE  }
@@ -61,6 +60,9 @@ rule token = parse
 
     (* Comparison *)
     | '<'  { LT } | "<=" { LTEQ } | '>' { GT } | ">=" { GTEQ } | "==" { EQ }
+
+    (* Identifier *)
+    | id as id  { ID(id) }
 
     (* Builtin Types *)
     | (int_uns as u)"int"(int_wid as w)(int_end as e)
