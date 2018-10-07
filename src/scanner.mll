@@ -61,9 +61,6 @@ rule token = parse
     (* Comparison *)
     | '<'  { LT } | "<=" { LTEQ } | '>' { GT } | ">=" { GTEQ } | "==" { EQ }
 
-    (* Identifier *)
-    | id as id  { ID(id) }
-
     (* Builtin Types *)
     | (int_uns as u)"int"(int_wid as w)(int_end as e)
       { INT_T(u, int_of_string w, e) }
@@ -74,6 +71,9 @@ rule token = parse
     | "Type"    { TYPE_T   } | "Array"    { ARRAY_T    }
     | "Func"    { FUNC_T   } | "Template" { TEMPLATE_T }
     | "None"    { NONE_T   }
+
+    (* Identifier *)
+    | id as id  { ID(id) }
 
     (* Literals *)
     | (int_const | hex_const | bin_const) as i { INT(int_of_string i)     }

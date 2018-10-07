@@ -7,10 +7,11 @@ let string_of_block = function
     Block(_) -> "\n{Block()}\n"
 
 let string_of_typename = function
-    TCustom(id) -> "Typename(" ^ string_of_id id ^ ")"
+    TCustom(id) -> "Typename(custom=" ^ string_of_id id ^ ")"
   | TInt((s,w,e)) -> "Typename(int, sign=" ^ s ^ ",width=" ^ string_of_int w ^
   ",endianess=" ^ e ^ ")"
   | TFloat(w) -> "Typename(float, width=" ^ string_of_int w ^ ")"
+  | TString -> "Typename(string)"
   | TNone -> "Typename(None)"
 
 let string_of_param = function

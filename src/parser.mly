@@ -29,10 +29,10 @@ param:    id COLON typename { Param($1, $3) }
 id:       ID { Id($1) }
 
 typename:
-    id          { TCustom($1) }
-  | INT_T       { TInt($1)    }
+    INT_T       { TInt($1)    }
   | FLOAT_T     { TFloat($1)  }
-  | STRING_T    { TNone       }
+  | STRING_T    { TString     }
+  | id          { TCustom($1) }
 
 params:
     param              { [$1]     }

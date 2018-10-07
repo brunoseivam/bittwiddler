@@ -4,9 +4,10 @@ type id = Id of string
 
 (* Types *)
 type typename =
-    TCustom of id
-  | TInt of (string * int * string)
+    TInt of (string * int * string)
   | TFloat of int
+  | TString
+  | TCustom of id
   | TNone
 
 type block = Block of int list
