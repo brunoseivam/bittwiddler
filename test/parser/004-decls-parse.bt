@@ -1,0 +1,20 @@
+func fun1:uint64 {
+}
+
+func fun2:int32 {
+}
+
+template tem1 {
+}
+
+template tem2 {
+}
+
+func fun3:int32be {
+}
+
+template tem3 {
+}
+
+parse {
+}

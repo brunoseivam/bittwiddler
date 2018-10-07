@@ -1,0 +1,8 @@
+func sum:uint64 (a:uint64, b:uint64, c:uint64, d:uint64) {
+}
+
+template test (a:string, b:string, c:string, d:float32) {
+}
+
+parse {
+}
