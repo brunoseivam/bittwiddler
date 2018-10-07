@@ -22,5 +22,40 @@
 
 %%
 
+parse:    PARSE block { Parse($2) }
+template: TEMPLATE id params_opt block { Template($2, List.rev $3, $4) }
+func:     FUNCTION id COLON typename params_opt block { Func($2, $4, List.rev $5, $6) }
+param:    id COLON typename { Param($1, $3) }
+id:       ID { Id($1) }
+
+typename:
+    id          { TCustom($1) }
+  | INT_T       { TInt($1)    }
+  | FLOAT_T     { TFloat($1)  }
+  | STRING_T    { TNone       }
+
+params:
+    param              { [$1]     }
+  | params COMMA param { $3 :: $1 }
+
+params_opt:
+    /* empty */          { [] }
+  | LPAREN params RPAREN { $2 }
+
+  block: LBRACE RBRACE { Block([]) }
+
+pdecls_opt:
+    /* empty */     { [] }
+  | pdecls          { $1 }
+
+pdecls:
+    pdecl           { [$1] }
+  | pdecls pdecl    { $2 :: $1 }
+
+pdecl:
+    template    { $1 }
+  | func        { $1 }
+
 program:
-    STRING EOF { StringLit($1) }
+    pdecls_opt parse EOF { Program(List.rev $1,$2) }
+

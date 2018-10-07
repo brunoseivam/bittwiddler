@@ -1,9 +1,12 @@
 .PHONY: all clean
 all: btc
 
-OBJS = parser.cmo scanner.cmo btc.cmo
+OBJS = parser.cmo scanner.cmo ast.cmo
 
-btc: $(OBJS)
+btc: $(OBJS) btc.cmo
+	ocamlc -o $@ $^
+
+pparser: $(OBJS) pparser.cmo
 	ocamlc -o $@ $^
 
 %.cmo: %.ml
@@ -26,6 +29,8 @@ ast.cmo :
 ast.cmx :
 btc.cmo : scanner.cmo parser.cmi ast.cmo
 btc.cmx : scanner.cmx parser.cmx ast.cmx
+pparser.cmo : scanner.cmo parser.cmi ast.cmo
+pparser.cmx : scanner.cmx parser.cmx ast.cmx
 parser.cmo : ast.cmo parser.cmi
 parser.cmx : ast.cmx parser.cmi
 scanner.cmo : parser.cmi

@@ -1,7 +1,8 @@
 open Ast
 
 let rec eval = function
-    StringLit(x) -> x
+    Program(pdecls, parse) ->
+        (string_of_pdecls pdecls) ^ (string_of_parse parse)
 
 let _ =
     let lexbuf = Lexing.from_channel stdin in
