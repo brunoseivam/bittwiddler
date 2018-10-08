@@ -22,11 +22,41 @@
 
 %%
 
-parse:    PARSE block { Parse($2) }
-template: TEMPLATE id params_opt block { Template($2, List.rev $3, $4) }
-func:     FUNCTION id COLON typename params_opt block { Func($2, $4, List.rev $5, $6) }
-param:    id COLON typename { Param($1, $3) }
-id:       ID { Id($1) }
+parse:
+    PARSE block { Parse($2) }
+
+template:
+    TEMPLATE id params_opt block { Template($2, List.rev $3, $4) }
+
+func:
+    FUNCTION id COLON typename params_opt block { Func($2, $4, List.rev $5, $6) }
+
+match_:
+    MATCH expr match_block { Match($2, $3) }
+
+match_block:
+    LBRACE match_arms RBRACE { List.rev $2 }
+
+match_arms:
+    expr ARM block            { [ ($1, $3) ]   }
+  | match_arms expr ARM block { ($2, $4) :: $1 }
+
+match_arm:
+    expr ARM block  { Arm($1, $3) }
+
+conditional:
+    IF expr block ELSE block       { If($2, $3, $5) }
+  | IF expr block ELSE conditional { If($2, $3, $5) }
+  | IF expr block                  { If($2, $3, ()) }
+
+for_:
+    FOR expr IN expr block { For($2, $4, $5) }
+
+param:
+    id COLON typename { Param($1, $3) }
+
+id:
+    ID { Id($1) }
 
 typename:
     INT_T       { TInt($1)    }
@@ -42,20 +72,69 @@ params_opt:
     /* empty */          { [] }
   | LPAREN params RPAREN { $2 }
 
-  block: LBRACE RBRACE { Block([]) }
+expr:
+    INT    { LInt($1)    }
+  | FLOAT  { LFloat($1)  }
+  | STRING { LString($1) }
+
+  | expr PLUS   expr { Binop($1, Plus,   $3) }
+  | expr MINUS  expr { Binop($1, Minus,  $3) }
+  | expr TIMES  expr { Binop($1, Times,  $3) }
+  | expr DIV    expr { Binop($1, Div,    $3) }
+  | expr REM    expr { Binop($1, Rem,    $3) }
+  | expr LSHIFT expr { Binop($1, LShift, $3) }
+  | expr RSHIFT expr { Binop($1, RShift, $3) }
+  | expr BWOR   expr { Binop($1, BwOr,   $3) }
+  | expr BWAND  expr { Binop($1, BwAnd,  $3) }
+  | expr AND    expr { Binop($1, And,    $3) }
+  | expr OR     expr { Binop($1, Or,     $3) }
+  | expr LT     expr { Binop($1, Lt,     $3) }
+  | expr LTEQ   expr { Binop($1, LtEq,   $3) }
+  | expr EQ     expr { Binop($1, Eq,     $3) }
+  | expr GTEQ   expr { Binop($1, GtEq,   $3) }
+  | expr GT     expr { Binop($1, Gt,     $3) }
+  |      BWNOT  expr { Unop(BwNot, $2) }
+  |      NOT    expr { Unop(Not,   $2) }
+
+  | match_      { $1 }
+  | conditional { $1 }
+  | for_        { $1 }
+  | func        { $1 }
+
+  | expr LBRACK expr RBRACK { }
+  | typename         { $1 }
+  | id DOT id        { Dot($1, $3) }
+  | id               { $1 }
+
+var:
+    expr COLON  expr ASSIGN expr  { Var($1, $3, $5) }
+  | expr ASSIGN expr              { Var($1, (), $3) }
+  | expr COLON  expr              { Var($1, $3, ()) }
+
+block_line:
+    expr SEMICOLON { Expr($1) }
+  | var SEMICOLON  { $1 }
+
+block_lines:
+    block_line             { $1 }
+  | block_lines block_line { $2 :: $1 }
+
+block:
+    LBRACE block_lines RBRACE { List.rev $2 }
 
 pdecls_opt:
-    /* empty */     { [] }
-  | pdecls          { $1 }
+    /* empty */ { [] }
+  | pdecls      { $1 }
 
 pdecls:
-    pdecl           { [$1] }
-  | pdecls pdecl    { $2 :: $1 }
+    pdecl        { [$1] }
+  | pdecls pdecl { $2 :: $1 }
 
 pdecl:
     template    { $1 }
   | func        { $1 }
+  | var         { $1 }
 
 program:
-    pdecls_opt parse EOF { Program(List.rev $1,$2) }
+    pdecls_opt parse EOF { Program(List.rev $1, $2) }
 

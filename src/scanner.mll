@@ -32,7 +32,6 @@ rule token = parse
     | '('  { LPAREN } | ')'  { RPAREN }
     | '{'  { LBRACE } | '}'  { RBRACE }
     | '['  { LBRACK } | '}'  { RBRACK }
-    | '<'  { LANGLE } | '>'  { RANGLE }
 
     (* Keywords *)
     | "template" { TEMPLATE  } | "parse"  { PARSE  }
@@ -62,7 +61,7 @@ rule token = parse
     | '<'  { LT } | "<=" { LTEQ } | '>' { GT } | ">=" { GTEQ } | "==" { EQ }
 
     (* Builtin Types *)
-    | (int_uns as u)"int"(int_wid as w)(int_end as e)
+    | (int_uns as u) "int" (int_wid as w) (int_end as e)
       { INT_T(u, int_of_string w, e) }
 
     | "float"(float_wid as w) { FLOAT_T(int_of_string w) }
@@ -78,8 +77,8 @@ rule token = parse
     (* Literals *)
     | (int_const | hex_const | bin_const) as i { INT(int_of_string i)     }
     | float_const as f                         { FLOAT(float_of_string f) }
-    | '"'  ([^'"']*  as s) '"'                  { STRING(s) }
-    | '\'' ([^'\'']* as s) '\''                 { STRING(s) }
+    | '"'  ([^'"']*  as s) '"'                 { STRING(s) }
+    | '\'' ([^'\'']* as s) '\''                { STRING(s) }
 
     | eof   { EOF }
 
