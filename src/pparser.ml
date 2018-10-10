@@ -30,6 +30,7 @@ let string_of_pdecl = function
             ^ ",returns:" ^ string_of_typename typename
             ^ ",params:" ^ string_of_params params
         ^ ")" ^ string_of_block block
+  | Var(_,_,_) -> "Var()"
 
 let string_of_pdecls pdecls =
     String.concat "\n" (List.map string_of_pdecl pdecls)

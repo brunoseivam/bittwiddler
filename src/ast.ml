@@ -1,42 +1,53 @@
 (* Abstract Syntax Tree *)
 
-type id = Id of string
-
-(* Types *)
-type typename =
-    TInt of (string * int * string)
-  | TFloat of int
-  | TString
-  | TCustom of id
-  | TNone
-
 type op =
     Plus | Minus | Times | Div | Rem | LShift | RShift
   | BwOr | BwAnd | And | Or | Lt | LtEq | Eq | GtEq | Gt
 type uop = BwNot | Not
 
 
-type expr =
+type arm =
+    Arm of expr * block
+
+and block =
+    Block of block_line list
+
+and block_line =
+    BDecl of pdecl
+  | Expr of expr
+
+and expr =
     LInt of int
   | LFloat of float
   | LString of string
   | Binop of expr * op * expr
-  | Unop of op * expr
-  | Match of expr * (expr * block) list
-  | If of expr * expr list * expr list
-  | For of expr * expr * expr list
+  | Unop of uop * expr
+  | Match of expr * arm list
+  | If of expr * block * block
+  | For of expr * expr * block
+  | Access of expr * expr
+  | EId of id
+  | EType of typename
 
-type block_line =
-    Var of expr * expr * expr
-  | Expr of expr
+and id =
+  | Id of string
 
-type block = Block of expr list
-type param = Param of id * typename
-type parse = Parse of block
+and typename =
+  | TInt of (string * int * string)
+  | TFloat of int
+  | TString
+  | TCustom of id
+  | TNone
 
-type pdecl =
+and pdecl =
     Template of id * param list * block
   | Func of id * typename * param list * block
-  | Var
+  | Var of expr * expr * expr
+
+and param =
+    Param of id * typename
+
+type parse = Parse of block
+
 
 type program = Program of pdecl list * parse

@@ -17,6 +17,20 @@
 %token <string> STRING
 %token EOF
 
+%left DOT LBRACK RBRACK
+%right NOT BWNOT
+%left TIMES DIV REM
+%left PLUS MINUS
+%left LSHIFT RSHIFT
+%left LT LTEQ GT GTEQ
+%left EQ /* NEQ */
+%left BWAND
+%left BWOR
+%left AND
+%left OR
+%right ASSIGN
+%right COMMA
+
 %start program
 %type <Ast.program> program
 
@@ -24,36 +38,6 @@
 
 parse:
     PARSE block { Parse($2) }
-
-template:
-    TEMPLATE id params_opt block { Template($2, List.rev $3, $4) }
-
-func:
-    FUNCTION id COLON typename params_opt block { Func($2, $4, List.rev $5, $6) }
-
-match_:
-    MATCH expr match_block { Match($2, $3) }
-
-match_block:
-    LBRACE match_arms RBRACE { List.rev $2 }
-
-match_arms:
-    expr ARM block            { [ ($1, $3) ]   }
-  | match_arms expr ARM block { ($2, $4) :: $1 }
-
-match_arm:
-    expr ARM block  { Arm($1, $3) }
-
-conditional:
-    IF expr block ELSE block       { If($2, $3, $5) }
-  | IF expr block ELSE conditional { If($2, $3, $5) }
-  | IF expr block                  { If($2, $3, ()) }
-
-for_:
-    FOR expr IN expr block { For($2, $4, $5) }
-
-param:
-    id COLON typename { Param($1, $3) }
 
 id:
     ID { Id($1) }
@@ -64,6 +48,9 @@ typename:
   | STRING_T    { TString     }
   | id          { TCustom($1) }
 
+param:
+    id COLON typename { Param($1, $3) }
+
 params:
     param              { [$1]     }
   | params COMMA param { $3 :: $1 }
@@ -71,6 +58,51 @@ params:
 params_opt:
     /* empty */          { [] }
   | LPAREN params RPAREN { $2 }
+
+template:
+    TEMPLATE id params_opt block { Template($2, List.rev $3, $4) }
+
+func:
+    FUNCTION id COLON typename params_opt block { Func($2, $4, List.rev $5, $6) }
+
+var:
+    expr COLON  expr ASSIGN expr  { Var($1, $3, $5) }
+  | expr ASSIGN expr              { Var($1, (), $3) }
+  | expr COLON  expr              { Var($1, $3, ()) }
+
+pdecls_opt:
+    /* empty */ { [] }
+  | pdecls      { $1 }
+
+pdecls:
+    pdecl        { [$1] }
+  | pdecls pdecl { $2 :: $1 }
+
+pdecl:
+    template    { $1 }
+  | func        { $1 }
+  | var         { $1 }
+
+match_:
+    MATCH expr match_block { Match($2, $3) }
+
+match_block:
+    LBRACE match_arms RBRACE { List.rev $2 }
+
+match_arms:
+    match_arm            { [$1]     }
+  | match_arms match_arm { $2 :: $1 }
+
+match_arm:
+    expr ARM block  { Arm($1, $3) }
+
+conditional:
+    IF expr block ELSE block       { If($2, $3, $5) }
+/*  | IF expr block ELSE conditional { If($2, $3, $5) }*/
+/*  | IF expr block                  { If($2, $3, ()) }*/
+
+for_:
+    FOR expr IN expr block { For($2, $4, $5) }
 
 expr:
     INT    { LInt($1)    }
@@ -99,42 +131,23 @@ expr:
   | match_      { $1 }
   | conditional { $1 }
   | for_        { $1 }
-  | func        { $1 }
+/*  | func        { $1 }*/
 
-  | expr LBRACK expr RBRACK { }
-  | typename         { $1 }
-  | id DOT id        { Dot($1, $3) }
-  | id               { $1 }
-
-var:
-    expr COLON  expr ASSIGN expr  { Var($1, $3, $5) }
-  | expr ASSIGN expr              { Var($1, (), $3) }
-  | expr COLON  expr              { Var($1, $3, ()) }
+  | expr LBRACK expr RBRACK { Access($1, $3) }
+/*  | typename         { $1 }*/
+/*  | id DOT id        { Dot($1, $3) }*/
+  | id               { EId($1) }
 
 block_line:
     expr SEMICOLON { Expr($1) }
-  | var SEMICOLON  { $1 }
+  | pdecl  { BDecl($1) }
 
 block_lines:
-    block_line             { $1 }
+    block_line             { [$1] }
   | block_lines block_line { $2 :: $1 }
 
 block:
-    LBRACE block_lines RBRACE { List.rev $2 }
-
-pdecls_opt:
-    /* empty */ { [] }
-  | pdecls      { $1 }
-
-pdecls:
-    pdecl        { [$1] }
-  | pdecls pdecl { $2 :: $1 }
-
-pdecl:
-    template    { $1 }
-  | func        { $1 }
-  | var         { $1 }
-
+    LBRACE block_lines RBRACE { Block(List.rev $2) }
 program:
     pdecls_opt parse EOF { Program(List.rev $1, $2) }
 
