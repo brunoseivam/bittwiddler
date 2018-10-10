@@ -16,5 +16,10 @@ func fun3:int32be {
 template tem3 {
 }
 
+pi : float64 = 3.1415912;
+
+func fun4:custom {
+}
+
 parse {
 }

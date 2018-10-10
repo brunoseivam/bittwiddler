@@ -1,0 +1,40 @@
+template AttrString {               # Represents an encoded string
+    @len : uint8;                   # len will not be a field of AttrString
+    _ : uint8[len];                 # AttrString will be an "alias" to uint8[]
+}
+
+template AttrDesc {                 # Attribute description
+    @typeCode : uint8;
+    type : Type = match typeCode {  # IF there's no match, the program aborts with an error
+        0x00 -> { AttrString; }
+        0x01 -> { uint32;     }
+    };
+    name : AttrString;
+}
+
+template Character(attrs:AttrDesc[]) {
+    for attr in attrs {             # Character's field names will come from strings
+        attr.name : attr.typel      # Auto type conversion: AttrString -> uint8[] -> string
+    }
+}
+
+parse {                             # Entry point
+    numAttrs : uint8;               # Reads in the number of attributes
+    attrs : AttrDesc[numAttrs];     # Reads in the attribute descriptions
+    character : Character(attrs);   # Reads character info based on attribute descriptions
+
+    emit('{');
+    for [i, attr] in enumerate(character) {
+        emit('{attr}:');
+
+        match typeof(character.attr) {
+            AttrString -> { emit('"{character.attr}"'); }
+            uint32 -> { emit('{character.attr}'); }
+        }
+
+        if i < len(character) - 1 { # len of a template is its number of fields
+            emit(',');
+        }
+    }
+    emit('}\n');
+}
