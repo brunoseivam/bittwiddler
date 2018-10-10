@@ -3,6 +3,7 @@
 type op =
     Plus | Minus | Times | Div | Rem | LShift | RShift
   | BwOr | BwAnd | And | Or | Lt | LtEq | Eq | NEq | GtEq | Gt
+  | Subscr | Access
 type uop = BwNot | Not
 
 
@@ -25,7 +26,6 @@ and expr =
   | Match of expr * arm list
   | If of expr * block * block
   | For of expr * expr * block
-  | Access of expr * expr
   | EId of id
   | EType of typename
 
@@ -42,7 +42,7 @@ and typename =
 and pdecl =
     Template of id * param list * block
   | Func of id * typename * param list * block
-  | Var of expr * expr * expr
+  | Var of expr * expr * expr option
 
 and param =
     Param of id * typename

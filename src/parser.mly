@@ -7,7 +7,7 @@
 %token PLUS MINUS TIMES DIV REM
 %token LSHIFT RSHIFT BWOR BWAND BWNOT
 %token AND OR NOT
-%token LT LTEQ EQ GT GTEQ
+%token LT LTEQ EQ NEQ GT GTEQ
 %token <string> ID
 %token <string * int * string> INT_T
 %token <int> FLOAT_T
@@ -23,7 +23,7 @@
 %left PLUS MINUS
 %left LSHIFT RSHIFT
 %left LT LTEQ GT GTEQ
-%left EQ /* NEQ */
+%left EQ NEQ
 %left BWAND
 %left BWOR
 %left AND
@@ -66,9 +66,8 @@ func:
     FUNCTION id COLON typename params_opt block { Func($2, $4, List.rev $5, $6) }
 
 var:
-    expr COLON  expr ASSIGN expr  { Var($1, $3, $5) }
-  | expr ASSIGN expr              { Var($1, (), $3) }
-  | expr COLON  expr              { Var($1, $3, ()) }
+    expr COLON  expr ASSIGN expr  { Var($1, $3, Some $5) }
+  | expr COLON  expr              { Var($1, $3, None)    }
 
 pdecls_opt:
     /* empty */ { [] }
@@ -129,14 +128,14 @@ expr:
   |      BWNOT  expr { Unop(BwNot, $2) }
   |      NOT    expr { Unop(Not,   $2) }
 
+  | expr LBRACK expr RBRACK { Binop($1, Subscr, $3) }
+  | expr DOT expr           { Binop($1, Access, $3) }
+
   | match_      { $1 }
   | conditional { $1 }
   | for_        { $1 }
-/*  | func        { $1 }*/
 
-  | expr LBRACK expr RBRACK { Access($1, $3) }
 /*  | typename         { $1 }*/
-/*  | id DOT id        { Dot($1, $3) }*/
   | id               { EId($1) }
 
 block_line:
