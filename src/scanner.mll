@@ -58,7 +58,8 @@ rule token = parse
     | "and" { AND } | "or" { OR } | "not" { NOT }
 
     (* Comparison *)
-    | '<'  { LT } | "<=" { LTEQ } | '>' { GT } | ">=" { GTEQ } | "==" { EQ }
+    | '<'  { LT } | "<=" { LTEQ } | '>' { GT } | ">=" { GTEQ }
+    | "==" { EQ } | "!=" { NEQ  }
 
     (* Builtin Types *)
     | (int_uns as u) "int" (int_wid as w) (int_end as e)

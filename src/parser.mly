@@ -123,6 +123,7 @@ expr:
   | expr LT     expr { Binop($1, Lt,     $3) }
   | expr LTEQ   expr { Binop($1, LtEq,   $3) }
   | expr EQ     expr { Binop($1, Eq,     $3) }
+  | expr NEQ    expr { Binop($1, NEq,    $3) }
   | expr GTEQ   expr { Binop($1, GtEq,   $3) }
   | expr GT     expr { Binop($1, Gt,     $3) }
   |      BWNOT  expr { Unop(BwNot, $2) }

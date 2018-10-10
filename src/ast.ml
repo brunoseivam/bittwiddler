@@ -2,7 +2,7 @@
 
 type op =
     Plus | Minus | Times | Div | Rem | LShift | RShift
-  | BwOr | BwAnd | And | Or | Lt | LtEq | Eq | GtEq | Gt
+  | BwOr | BwAnd | And | Or | Lt | LtEq | Eq | NEq | GtEq | Gt
 type uop = BwNot | Not
 
 
