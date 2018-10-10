@@ -36,9 +36,6 @@
 
 %%
 
-parse:
-    PARSE block { Parse($2) }
-
 id:
     ID { Id($1) }
 
@@ -80,7 +77,7 @@ pdecls:
 pdecl:
     template    { $1 }
   | func        { $1 }
-  | var         { $1 }
+/*  | var         { $1 }*/
 
 match_:
     MATCH expr match_block { Match($2, $3) }
@@ -148,6 +145,11 @@ block_lines:
 
 block:
     LBRACE block_lines RBRACE { Block(List.rev $2) }
+  | LBRACE RBRACE             { Block([])          }
+
+parse:
+    PARSE block { Parse($2) }
+
 program:
     pdecls_opt parse EOF { Program(List.rev $1, $2) }
 
