@@ -4,9 +4,10 @@ all: btp
 
 btp:
 	$(MAKE) -C src $@
-	cp src/$@ .
+	ln -s src/$@ .
 
 clean:
+	$(MAKE) -C src $@
 	$(RM) btp
 
 test: btp
