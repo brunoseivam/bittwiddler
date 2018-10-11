@@ -9,8 +9,11 @@ let int_end  = ("le"|"be")?
 let float_wid = "32"|"64"
 
 let digit  = ['0'-'9']
-let letter = ['a'-'z' 'A'-'Z' '_']
-let id     = letter(letter|digit)*
+let ucase  = ['A'-'Z']
+let lcase  = ['a'-'z']
+let letter = ['A'-'Z' 'a'-'z' '_']
+let id     = (lcase | '_')(letter|digit)*
+let type_  = (ucase)(letter|digit)*
 
 let num  = digit
 let dot  = '.'
@@ -31,7 +34,7 @@ rule token = parse
     (* Delimiters *)
     | '('  { LPAREN } | ')'  { RPAREN }
     | '{'  { LBRACE } | '}'  { RBRACE }
-    | '['  { LBRACK } | '}'  { RBRACK }
+    | '['  { LBRACK } | ']'  { RBRACK }
 
     (* Keywords *)
     | "template" { TEMPLATE  } | "parse"  { PARSE  }
@@ -68,20 +71,19 @@ rule token = parse
       { INT_T(u, int_of_string w, e) }
 
     | "float"(float_wid as w) { FLOAT_T(int_of_string w) }
-
     | "string"  { STRING_T }
-    | "Type"    { TYPE_T   } | "Array"    { ARRAY_T    }
-    | "Func"    { FUNC_T   } | "Template" { TEMPLATE_T }
-    | "None"    { NONE_T   }
 
     (* Identifier *)
     | id as id  { ID(id) }
 
+    (* Type Identifier *)
+    | type_ as type_ { ID_T(type_) }
+
     (* Literals *)
     | (int_const | hex_const | bin_const) as i { INT(int_of_string i)     }
     | float_const as f                         { FLOAT(float_of_string f) }
-    | '"'  ([^'"']*  as s) '"'                 { STRING(s) }
-    | '\'' ([^'\'']* as s) '\''                { STRING(s) }
+    | '"' ([^'"']* as s) '"'                   { STRING(s) }
+    | ''' ([^''']* as s) '''                   { STRING(s) }
 
     | eof   { EOF }
 

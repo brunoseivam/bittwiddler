@@ -9,9 +9,10 @@
 %token AND OR NOT
 %token LT LTEQ EQ NEQ GT GTEQ
 %token <string> ID
+%token <string> ID_T
 %token <string * int * string> INT_T
 %token <int> FLOAT_T
-%token STRING_T TYPE_T ARRAY_T FUNC_T TEMPLATE_T NONE_T
+%token STRING_T
 %token <int> INT
 %token <float> FLOAT
 %token <string> STRING
@@ -44,10 +45,16 @@ typename:
     INT_T       { TInt($1)    }
   | FLOAT_T     { TFloat($1)  }
   | STRING_T    { TString     }
-  | id          { TCustom($1) }
+  | ID_T        { TId($1)    }
+
+type_:
+    typename                         { ScalarType($1)       }
+  | typename LBRACK RBRACK           { ArrayType($1, None)  }
+  | typename LBRACK expr RBRACK      { ArrayType($1, Some $3)  }
+  | typename LPAREN expr_list RPAREN { ScalarTypeParam($1, List.rev $3) }
 
 param:
-    id COLON typename { Param($1, $3) }
+    id COLON type_ { Param($1, $3) }
 
 params:
     param              { [$1]     }
@@ -58,22 +65,22 @@ params_opt:
   | LPAREN params RPAREN { $2 }
 
 template:
-    TEMPLATE id params_opt block { Template($2, List.rev $3, $4) }
+    TEMPLATE ID_T params_opt block { Template($2, List.rev $3, $4) }
 
 func:
-    FUNCTION id COLON typename params_opt block { Func($2, $4, List.rev $5, $6) }
+    FUNCTION id COLON type_ params_opt block { Func($2, $4, List.rev $5, $6) }
 
 opt_hide:
     /* empty */ { false }
   | AT          { true  }
 
 var:
-    VAR opt_hide id   COLON expr ASSIGN expr SEMICOLON {  Var($2, $3, Some $5, Some $7) }
-  | VAR opt_hide id   COLON expr             SEMICOLON {  Var($2, $3, Some $5, None   ) }
-  | VAR opt_hide id              ASSIGN expr SEMICOLON {  Var($2, $3, None,    Some $5) }
-  | VAR DOLLAR   expr COLON expr ASSIGN expr SEMICOLON { TVar(    $3, Some $5, Some $7) }
-  | VAR DOLLAR   expr COLON expr             SEMICOLON { TVar(    $3, Some $5, None   ) }
-  | VAR DOLLAR   expr            ASSIGN expr SEMICOLON { TVar(    $3, None,    Some $5) }
+    VAR opt_hide id   COLON type_ ASSIGN expr SEMICOLON {  Var($2, $3, Some $5, Some $7) }
+  | VAR opt_hide id   COLON type_             SEMICOLON {  Var($2, $3, Some $5, None   ) }
+  | VAR opt_hide id               ASSIGN expr SEMICOLON {  Var($2, $3, None,    Some $5) }
+  | VAR DOLLAR   expr COLON expr  ASSIGN expr SEMICOLON { TVar(    $3, Some $5, Some $7) }
+  | VAR DOLLAR   expr COLON expr              SEMICOLON { TVar(    $3, Some $5, None   ) }
+  | VAR DOLLAR   expr             ASSIGN expr SEMICOLON { TVar(    $3, None,    Some $5) }
 
 decls_opt:
     /* empty */ { [] }
@@ -84,9 +91,9 @@ decls:
   | decls decl { $2 :: $1 }
 
 decl:
-    template      { $1 }
-  | func          { $1 }
-  | var SEMICOLON { $1 }
+    template { $1 }
+  | func     { $1 }
+  | var      { $1 }
 
 match_:
     MATCH expr match_block { Match($2, $3) }
@@ -146,10 +153,11 @@ expr:
   | match_      { $1 }
   | conditional { $1 }
   | for_        { $1 }
-  | id LPAREN expr_list RPAREN { Call($1, List.rev $3) }
 
-/*  | typename         { $1 }*/
-  | id               { EId($1) }
+  | id       LPAREN expr_list RPAREN { Call($1, List.rev $3)  }
+
+  | id       { EId($1) }
+  | typename { EType($1) }
 
 block_line:
     expr SEMICOLON { Expr($1) }

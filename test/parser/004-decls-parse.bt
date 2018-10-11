@@ -4,21 +4,21 @@ func fun1:uint64 {
 func fun2:int32 {
 }
 
-template tem1 {
+template Tem1 {
 }
 
-template tem2 {
+template Tem2 {
 }
 
 func fun3:int32be {
 }
 
-template tem3 {
+template Tem3 {
 }
 
 var pi : float64 = 3.1415912;
 
-func fun4:custom {
+func fun4:Custom {
 }
 
 parse {

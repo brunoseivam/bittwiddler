@@ -3,7 +3,7 @@ func gcd:uint64 (a:uint64, b:uint64) {
         a;              # return keyword is not necessary
     } else {
         gcd(b, a % b);
-    }
+    };
 }
 
 parse {

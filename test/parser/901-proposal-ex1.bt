@@ -3,9 +3,9 @@ parse {                         # Reads from stdin automatically.
     var name:uint8[n];          # Array declared in terms of previous fields.
     var health:uint32;          # Defaults to native byte order.
 
-    emit(‘{‘);                  # emit writes to stdout.
-    emit(‘”name”: “{name}”,’);  # Automatic formatting from uint8[] to string.
-    emit(‘”health”: {health}’); # And from uint32 to string.
-    emit(‘}’);
+    emit('{');                  # emit writes to stdout.
+    emit('”name”: “{name}”,');  # Automatic formatting from uint8[] to string.
+    emit('”health”: {health}'); # And from uint32 to string.
+    emit('}');
 }
 

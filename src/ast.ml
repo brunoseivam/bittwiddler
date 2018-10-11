@@ -6,6 +6,11 @@ type op =
   | Subscr | Access
 type uop = BwNot | Not
 
+type ptype =
+  | TInt of (string * int * string)
+  | TFloat of int
+  | TString
+  | TId of string
 
 type arm =
     Arm of expr * block
@@ -21,33 +26,31 @@ and expr =
     LInt of int
   | LFloat of float
   | LString of string
+  | EType of ptype
+  | EId of id
   | Binop of expr * op * expr
   | Unop of uop * expr
   | Match of expr * arm list
   | If of expr * block * block
   | For of expr * expr * block
   | Call of id * expr list
-  | EId of id
-  | EType of typename
 
 and id =
-  | Id of string
+    Id of string
 
-and typename =
-  | TInt of (string * int * string)
-  | TFloat of int
-  | TString
-  | TCustom of id
-  | TNone
+and type_ =
+    ScalarType of ptype
+  | ArrayType of ptype * expr option
+  | ScalarTypeParam of ptype * expr list
 
 and pdecl =
-    Template of id * param list * block
-  | Func of id * typename * param list * block
-  | Var of bool * id * expr option * expr option
+    Template of string * param list * block
+  | Func of id * type_ * param list * block
+  | Var of bool * id * type_ option * expr option
   | TVar of expr * expr option * expr option
 
 and param =
-    Param of id * typename
+    Param of id * type_
 
 type parse = Parse of block
 
