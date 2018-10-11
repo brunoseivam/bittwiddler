@@ -109,6 +109,11 @@ conditional:
 for_:
     FOR expr IN expr block { For($2, $4, $5) }
 
+expr_list:
+    /* empty */          { []     }
+  | expr                 { [$1]   }
+  | expr_list COMMA expr { $3::$1 }
+
 expr:
     INT    { LInt($1)    }
   | FLOAT  { LFloat($1)  }
@@ -141,6 +146,7 @@ expr:
   | match_      { $1 }
   | conditional { $1 }
   | for_        { $1 }
+  | id LPAREN expr_list RPAREN { Call($1, List.rev $3) }
 
 /*  | typename         { $1 }*/
   | id               { EId($1) }

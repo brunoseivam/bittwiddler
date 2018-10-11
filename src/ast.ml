@@ -26,6 +26,7 @@ and expr =
   | Match of expr * arm list
   | If of expr * block * block
   | For of expr * expr * block
+  | Call of id * expr list
   | EId of id
   | EType of typename
 
