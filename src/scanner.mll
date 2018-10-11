@@ -39,10 +39,12 @@ rule token = parse
     | "for"      { FOR       } | "in"     { IN     }
     | "match"    { MATCH     } | "->"     { ARM    }
     | "if"       { IF        } | "else"   { ELSE   }
+    | "var"      { VAR       }
 
     | '.' { DOT       } | ','  { COMMA  }
     | ':' { COLON     } | '@'  { AT     }
     | ';' { SEMICOLON } | '='  { ASSIGN }
+    | '$' { DOLLAR    }
 
     (* Arithmetic *)
     | '+' { PLUS  } | '-' { MINUS }

@@ -42,7 +42,8 @@ and typename =
 and pdecl =
     Template of id * param list * block
   | Func of id * typename * param list * block
-  | Var of expr * expr * expr option
+  | Var of bool * id * expr option * expr option
+  | TVar of expr * expr option * expr option
 
 and param =
     Param of id * typename
