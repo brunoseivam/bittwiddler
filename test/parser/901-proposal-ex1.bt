@@ -1,7 +1,7 @@
 parse {                         # Reads from stdin automatically.
-    n:uint8;                    # Declaring without assignment: reads from stdin.
-    name:uint8[n];              # Array declared in terms of previous fields.
-    health:uint32;              # Defaults to native byte order.
+    var n:uint8;                # Declaring without assignment: reads from stdin.
+    var name:uint8[n];          # Array declared in terms of previous fields.
+    var health:uint32;          # Defaults to native byte order.
 
     emit(‘{‘);                  # emit writes to stdout.
     emit(‘”name”: “{name}”,’);  # Automatic formatting from uint8[] to string.

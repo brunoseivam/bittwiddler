@@ -7,8 +7,8 @@ func gcd:uint64 (a:uint64, b:uint64) {
 }
 
 parse {
-    a : uint64;         # Read inputs from standard input
-    b : uint64;
-    r : uint64 = gcd(a, b);
+    var a : uint64;         # Read inputs from standard input
+    var b : uint64;
+    var r : uint64 = gcd(a, b);
     emit('gcd({a}, {b}) = {r}\n');
 }

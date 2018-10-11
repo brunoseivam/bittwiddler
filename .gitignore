@@ -25,5 +25,5 @@ setup.log
 scanner.ml
 parser.ml
 parser.mli
-btc
+btp
 pparser
