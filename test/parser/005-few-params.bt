@@ -1,4 +1,4 @@
-func sum:uint64 (a:uint64, b:uint64, c:uint64, d:uint64) {
+func sum(a:uint64, b:uint64, c:uint64, d:uint64):uint64  {
 }
 
 template Test (a:string, b:string, c:string, d:float32) {

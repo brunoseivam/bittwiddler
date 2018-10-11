@@ -47,11 +47,18 @@ typename:
   | STRING_T    { TString     }
   | ID_T        { TId($1)    }
 
+typeargs_opt:
+    /* empty */            { None               }
+  | LPAREN typeargs RPAREN { Some (List.rev $2) }
+
+typeargs:
+    expr                { [$1]   }
+  | typeargs COMMA expr { $3::$1 }
+
 type_:
-    typename                         { ScalarType($1)       }
-  | typename LBRACK RBRACK           { ArrayType($1, None)  }
-  | typename LBRACK expr RBRACK      { ArrayType($1, Some $3)  }
-  | typename LPAREN expr_list RPAREN { ScalarTypeParam($1, List.rev $3) }
+    typename typeargs_opt                    { ScalarType($1, $2)         }
+  | typename typeargs_opt LBRACK RBRACK      { ArrayType($1, $2, None)    }
+  | typename typeargs_opt LBRACK expr RBRACK { ArrayType($1, $2, Some $4) }
 
 param:
     id COLON type_ { Param($1, $3) }
@@ -68,7 +75,7 @@ template:
     TEMPLATE ID_T params_opt block { Template($2, List.rev $3, $4) }
 
 func:
-    FUNCTION id COLON type_ params_opt block { Func($2, $4, List.rev $5, $6) }
+    FUNCTION id params_opt COLON type_ block { Func($2, $5, List.rev $3, $6) }
 
 opt_hide:
     /* empty */ { false }

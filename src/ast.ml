@@ -34,14 +34,15 @@ and expr =
   | If of expr * block * block
   | For of expr * expr * block
   | Call of id * expr list
+  | TCall of ptype * expr list
 
 and id =
     Id of string
 
 and type_ =
-    ScalarType of ptype
-  | ArrayType of ptype * expr option
-  | ScalarTypeParam of ptype * expr list
+    ScalarType of ptype * expr list option
+  | ArrayType of ptype * expr list option * expr option
+  | ScalarTypeParam of ptype * expr list option * expr list
 
 and pdecl =
     Template of string * param list * block
