@@ -42,7 +42,7 @@ rule token = parse
     | "for"      { FOR       } | "in"     { IN     }
     | "match"    { MATCH     } | "->"     { ARM    }
     | "if"       { IF        } | "else"   { ELSE   }
-    | "var"      { VAR       }
+    | "var"      { VAR       } | "elif"   { ELIF   }
 
     | '.' { DOT       } | ','  { COMMA  }
     | ':' { COLON     } | '@'  { AT     }

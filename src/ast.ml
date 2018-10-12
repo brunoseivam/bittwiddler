@@ -22,6 +22,9 @@ and block_line =
     BDecl of pdecl
   | Expr of expr
 
+and if_ =
+    If of expr option * block
+
 and expr =
     LInt of int
   | LFloat of float
@@ -31,7 +34,7 @@ and expr =
   | Binop of expr * op * expr
   | Unop of uop * expr
   | Match of expr * arm list
-  | If of expr * block * block
+  | Cond of if_ list
   | For of expr * expr * block
   | Call of id * expr list
   | TCall of ptype * expr list

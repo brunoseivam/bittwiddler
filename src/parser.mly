@@ -2,7 +2,7 @@
 
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK LANGLE RANGLE
 %token TEMPLATE PARSE FUNCTION RETURN VAR
-%token FOR IN MATCH ARM IF ELSE
+%token FOR IN MATCH ARM IF ELSE ELIF
 %token DOT COMMA COLON AT DOLLAR SEMICOLON ASSIGN
 %token PLUS MINUS TIMES DIV REM
 %token LSHIFT RSHIFT BWOR BWAND BWNOT
@@ -115,10 +115,27 @@ match_arms:
 match_arm:
     expr ARM block  { Arm($1, $3) }
 
+
+if_:
+    IF expr block { [If(Some $2, $3)] }
+
+opt_elseifs:
+    /* empty */ { [] }
+  | elseifs     { $1 }
+
+elseifs:
+    elseif         { [$1]   }
+  | elseifs elseif { $2::$1 }
+
+elseif:
+    ELIF expr block { If(Some $2, $3) }
+
+opt_else:
+    /* empty */     { [] }
+  | ELSE block      { [If(None, $2)] }
+
 conditional:
-    IF expr block ELSE block       { If($2, $3, $5) }
-/*  | IF expr block ELSE conditional { If($2, $3, $5) }*/
-/*  | IF expr block                  { If($2, $3, ()) }*/
+    if_ opt_elseifs opt_else { Cond($1 @ (List.rev $2) @ $3) }
 
 for_:
     FOR expr IN expr block { For($2, $4, $5) }
