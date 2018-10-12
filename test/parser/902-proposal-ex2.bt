@@ -24,7 +24,7 @@ parse {                               # Entry point
     var character : Character(attrs); # Reads character info based on attribute descriptions
 
     emit('{');
-    for [i, attr] in enumerate(character) {
+    for i, attr in enumerate(character) {
         emit('{attr}:');
 
         match typeof(character.attr) {
@@ -35,6 +35,6 @@ parse {                               # Entry point
         if i < len(character) - 1 { # len of a template is its number of fields
             emit(',');
         };
-    }
+    };
     emit('}\n');
 }

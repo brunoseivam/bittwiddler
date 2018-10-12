@@ -35,7 +35,7 @@ and expr =
   | Unop of uop * expr
   | Match of expr * arm list
   | Cond of if_ list
-  | For of expr * expr * block
+  | For of id list * expr * block
   | Call of id * expr list
   | TCall of ptype * expr list
 

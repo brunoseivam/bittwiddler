@@ -137,8 +137,12 @@ opt_else:
 conditional:
     if_ opt_elseifs opt_else { Cond($1 @ (List.rev $2) @ $3) }
 
+forvars:
+    id                { [$1]   }
+  | forvars COMMA id  { $3::$1 }
+
 for_:
-    FOR expr IN expr block { For($2, $4, $5) }
+    FOR forvars IN expr block { For($2, $4, $5) }
 
 expr_list:
     /* empty */          { []     }
