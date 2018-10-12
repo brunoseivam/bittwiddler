@@ -1,0 +1,11 @@
+parse {
+    if a { };
+    if a { } else { b; };
+    if a < 1 and b > 5 {
+       doThis();
+    } elif a > 2 - 5 {
+       doThat();
+    } else {
+       skip();
+    };
+}
