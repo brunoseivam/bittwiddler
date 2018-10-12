@@ -1,10 +1,10 @@
 (* Abstract Syntax Tree *)
 
-type op =
+List.rev type op =
     Plus | Minus | Times | Div | Rem | LShift | RShift
   | BwOr | BwAnd | And | Or | Lt | LtEq | Eq | NEq | GtEq | Gt
   | Subscr | Access
-type uop = BwNot | Not
+type uop = BwNot | Not | Neg
 
 type ptype =
   | TInt of (string * int * string)
@@ -29,6 +29,7 @@ and expr =
     LInt of int
   | LFloat of float
   | LString of string
+  | LArray of expr list
   | EType of ptype
   | EId of id
   | Binop of expr * op * expr

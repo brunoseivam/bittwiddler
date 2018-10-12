@@ -1,0 +1,28 @@
+parse {
+    # Integers
+    1234;
+    0x1337af;
+    0b01000010;
+    -42;
+    -0xFeDcBa;
+
+    # Floats
+    1.;
+    1.1;
+    1e1234;
+    1.1234e+56;
+    1.123e-45;
+    .1234;
+    -432.1;
+
+    # Strings
+    'string';
+    "string";
+    "'a' 'string'";
+    '"another" "str"';
+
+    # Arrays
+    [1, 2, 3];
+    [1.0e0, "string", 0x123];
+    [];
+}

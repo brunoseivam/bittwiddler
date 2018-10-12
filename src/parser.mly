@@ -154,6 +154,8 @@ expr:
   | FLOAT  { LFloat($1)  }
   | STRING { LString($1) }
 
+  | LBRACK expr_list RBRACK { LArray(List.rev $2) }
+
   | expr PLUS   expr { Binop($1, Plus,   $3) }
   | expr MINUS  expr { Binop($1, Minus,  $3) }
   | expr TIMES  expr { Binop($1, Times,  $3) }
@@ -171,6 +173,7 @@ expr:
   | expr NEQ    expr { Binop($1, NEq,    $3) }
   | expr GTEQ   expr { Binop($1, GtEq,   $3) }
   | expr GT     expr { Binop($1, Gt,     $3) }
+  |      MINUS  expr { Unop(Neg,   $2) }
   |      BWNOT  expr { Unop(BwNot, $2) }
   |      NOT    expr { Unop(Not,   $2) }
 

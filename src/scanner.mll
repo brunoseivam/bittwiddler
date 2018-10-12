@@ -23,8 +23,8 @@ let exp  = ['e' 'E'] sign? num+
 (* float_const adapted from my homework 2 *)
 let float_const = sign? ((num+ dot? num* exp)|(num* dot num+ exp?)|(num+ dot))
 let int_const = sign? num+
-let hex_const = "0x" ['0'-'9' 'a'-'f' 'A'-'F']+
-let bin_const = "0b" ['0' '1']+
+let hex_const = sign?"0x" ['0'-'9' 'a'-'f' 'A'-'F']+
+let bin_const = sign?"0b" ['0' '1']+
 
 rule token = parse
     (* Whitespace and comments (ignored) *)
