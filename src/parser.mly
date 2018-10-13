@@ -196,17 +196,17 @@ expr:
   | id       { EId($1) }
   | typename { EType($1) }
 
-block_line:
+block_stmt:
     expr SEMICOLON        { Expr($1)   }
   | decl                  { BDecl($1)  }
   | RETURN expr SEMICOLON { Return($2) }
 
-block_lines:
-    block_line             { [$1] }
-  | block_lines block_line { $2 :: $1 }
+block_stmts:
+    block_stmt             { [$1] }
+  | block_stmts block_stmt { $2 :: $1 }
 
 block:
-    LBRACE block_lines RBRACE { Block(List.rev $2) }
+    LBRACE block_stmts RBRACE { Block(List.rev $2) }
   | LBRACE RBRACE             { Block([])          }
 
 parse:
