@@ -3,7 +3,7 @@
 List.rev type op =
     Plus | Minus | Times | Div | Rem | LShift | RShift
   | BwOr | BwAnd | And | Or | Lt | LtEq | Eq | NEq | GtEq | Gt
-  | Subscr | Access
+  | Subscr | Access | Assign
 type uop = BwNot | Not | Neg
 
 type ptype =
@@ -21,6 +21,7 @@ and block =
 and block_line =
     BDecl of pdecl
   | Expr of expr
+  | Return of expr
 
 and if_ =
     If of expr option * block
@@ -37,6 +38,7 @@ and expr =
   | Match of expr * arm list
   | Cond of if_ list
   | For of id list * expr * block
+  | While of expr * block
   | Call of id * expr list
   | TCall of ptype * expr list
 

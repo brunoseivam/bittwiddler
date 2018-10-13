@@ -40,14 +40,14 @@ rule token = parse
     | "template" { TEMPLATE  } | "parse"  { PARSE  }
     | "func"     { FUNCTION  } | "return" { RETURN }
     | "for"      { FOR       } | "in"     { IN     }
+    | "while"    { WHILE     }
     | "match"    { MATCH     } | "->"     { ARM    }
     | "if"       { IF        } | "else"   { ELSE   }
     | "var"      { VAR       } | "elif"   { ELIF   }
 
-    | '.' { DOT       } | ','  { COMMA  }
-    | ':' { COLON     } | '@'  { AT     }
-    | ';' { SEMICOLON } | '='  { ASSIGN }
-    | '$' { DOLLAR    }
+    | '.' { DOT       } | ','  { COMMA   }
+    | ':' { COLON     } | '@'  { AT      }
+    | ';' { SEMICOLON } | '='  { ASSIGN  }
 
     (* Arithmetic *)
     | '+' { PLUS  } | '-' { MINUS }

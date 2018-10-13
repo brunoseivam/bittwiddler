@@ -2,8 +2,8 @@
 
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK LANGLE RANGLE
 %token TEMPLATE PARSE FUNCTION RETURN VAR
-%token FOR IN MATCH ARM IF ELSE ELIF
-%token DOT COMMA COLON AT DOLLAR SEMICOLON ASSIGN
+%token FOR IN WHILE MATCH ARM IF ELSE ELIF
+%token DOT COMMA COLON AT SEMICOLON ASSIGN
 %token PLUS MINUS TIMES DIV REM
 %token LSHIFT RSHIFT BWOR BWAND BWNOT
 %token AND OR NOT
@@ -81,13 +81,14 @@ opt_hide:
     /* empty */ { false }
   | AT          { true  }
 
+
 var:
     VAR opt_hide id   COLON type_ ASSIGN expr SEMICOLON {  Var($2, $3, Some $5, Some $7) }
   | VAR opt_hide id   COLON type_             SEMICOLON {  Var($2, $3, Some $5, None   ) }
   | VAR opt_hide id               ASSIGN expr SEMICOLON {  Var($2, $3, None,    Some $5) }
-  | VAR DOLLAR   expr COLON expr  ASSIGN expr SEMICOLON { TVar(    $3, Some $5, Some $7) }
-  | VAR DOLLAR   expr COLON expr              SEMICOLON { TVar(    $3, Some $5, None   ) }
-  | VAR DOLLAR   expr             ASSIGN expr SEMICOLON { TVar(    $3, None,    Some $5) }
+  | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK  ASSIGN expr SEMICOLON { TVar(    $3, Some $7, Some $10) }
+  | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK              SEMICOLON { TVar(    $3, Some $7, None   )  }
+  | VAR LBRACK expr RBRACK                           ASSIGN expr SEMICOLON { TVar(    $3, None,    Some $6)  }
 
 decls_opt:
     /* empty */ { [] }
@@ -144,6 +145,9 @@ forvars:
 for_:
     FOR forvars IN expr block { For($2, $4, $5) }
 
+while_:
+    WHILE expr block { While($2, $3) }
+
 expr_list:
     /* empty */          { []     }
   | expr                 { [$1]   }
@@ -179,11 +183,13 @@ expr:
 
   | expr LBRACK expr RBRACK { Binop($1, Subscr, $3) }
   | expr DOT expr           { Binop($1, Access, $3) }
+  | expr ASSIGN expr        { Binop($1, Assign, $3) }
 
   | LPAREN expr RPAREN { $2 }
   | match_      { $1 }
   | conditional { $1 }
   | for_        { $1 }
+  | while_      { $1 }
 
   | id       LPAREN expr_list RPAREN { Call($1, List.rev $3)  }
 
@@ -191,8 +197,9 @@ expr:
   | typename { EType($1) }
 
 block_line:
-    expr SEMICOLON { Expr($1) }
-  | decl  { BDecl($1) }
+    expr SEMICOLON        { Expr($1)   }
+  | decl                  { BDecl($1)  }
+  | RETURN expr SEMICOLON { Return($2) }
 
 block_lines:
     block_line             { [$1] }

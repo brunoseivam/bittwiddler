@@ -13,8 +13,8 @@ template AttrDesc {                 # Attribute description
 }
 
 template Character(attrs:AttrDesc[]) {
-    for attr in attrs {             # Character's field names will come from strings
-        var $attr.name : attr.type; # Auto type conversion: AttrString -> uint8[] -> string
+    for attr in attrs {                # Character's field names will come from strings
+        var [attr.name] : [attr.type]; # Auto type conversion: AttrString -> uint8[] -> string
     };
 }
 
