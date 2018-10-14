@@ -86,9 +86,9 @@ var:
     VAR opt_hide id   COLON type_ ASSIGN expr SEMICOLON {  Var($2, $3, Some $5, Some $7) }
   | VAR opt_hide id   COLON type_             SEMICOLON {  Var($2, $3, Some $5, None   ) }
   | VAR opt_hide id               ASSIGN expr SEMICOLON {  Var($2, $3, None,    Some $5) }
-  | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK  ASSIGN expr SEMICOLON { TVar(    $3, Some $7, Some $10) }
-  | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK              SEMICOLON { TVar(    $3, Some $7, None   )  }
-  | VAR LBRACK expr RBRACK                           ASSIGN expr SEMICOLON { TVar(    $3, None,    Some $6)  }
+  | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK  ASSIGN expr SEMICOLON { TVar( $3, Some $7, Some $10) }
+  | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK              SEMICOLON { TVar( $3, Some $7, None   )  }
+  | VAR LBRACK expr RBRACK                           ASSIGN expr SEMICOLON { TVar( $3, None,    Some $6)  }
 
 decls_opt:
     /* empty */ { [] }
@@ -209,9 +209,6 @@ block:
     LBRACE block_stmts RBRACE { Block(List.rev $2) }
   | LBRACE RBRACE             { Block([])          }
 
-parse:
-    PARSE block { Parse($2) }
-
 program:
-    decls_opt parse EOF { Program(List.rev $1, $2) }
+    decls_opt PARSE block EOF { Program(List.rev $1, $3) }
 
