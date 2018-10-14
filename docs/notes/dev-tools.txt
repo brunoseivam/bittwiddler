@@ -1,0 +1,6 @@
+LibreOffice Writer: documentation
+OCaml: programming language
+vim: text editor
+git: version control
+GitHub: project hosting
+
