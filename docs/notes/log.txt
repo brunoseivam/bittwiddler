@@ -2,3 +2,4 @@ Oct 6: started on Language Reference Manual and parser
 Oct 7: parser parses a very simple version of the language
 Oct 11: full parser done
 Oct 13: full parser tweaked
+Oct 14: finished LRM
