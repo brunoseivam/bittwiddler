@@ -210,5 +210,5 @@ block:
   | LBRACE RBRACE             { Block([])          }
 
 program:
-    decls_opt PARSE block EOF { Program(List.rev $1, $3) }
+    decls_opt PARSE block EOF { Program(List.rev $1, Parse($3)) }
 
