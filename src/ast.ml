@@ -1,6 +1,6 @@
 (* Abstract Syntax Tree *)
 
-List.rev type op =
+type op =
     Plus | Minus | Times | Div | Rem | LShift | RShift
   | BwOr | BwAnd | And | Or | Lt | LtEq | Eq | NEq | GtEq | Gt
   | Subscr | Access | Assign
@@ -140,6 +140,7 @@ and string_of_cond = function
     If(Some e, b)::elses ->
         "if " ^ string_of_expr e ^ " " ^ string_of_block b
         ^ String.concat "" (List.map string_of_else elses)
+  | _ -> ""
 
 and string_of_else = function
     If(e, b) ->
@@ -188,10 +189,10 @@ and
         ^ (match expr with Some(e) -> " = " ^ string_of_expr e | None -> "")
   | TVar(vid, vtype, vval) ->
         "var [ " ^ string_of_expr vid ^ " ]"
-        ^ match vtype with Some(t) -> " : [ " ^ string_of_expr t ^ " ]"
-                         | None -> ""
-        ^ match vval with Some(v) -> " = " ^ string_of_expr v
-                        | None -> ""
+        ^ (match vtype with Some(t) -> " : [ " ^ string_of_expr t ^ " ]"
+                         | None -> "")
+        ^ (match vval with Some(v) -> " = " ^ string_of_expr v
+                        | None -> "")
 
 let string_of_parse = function
     Parse(block) -> "parse " ^ string_of_block block
