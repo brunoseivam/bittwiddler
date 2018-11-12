@@ -11,4 +11,4 @@ bittwiddler.native:
 
 clean:
 	ocamlbuild -clean
-	rm *diff *.ll testall.log
+	-rm -f *diff *.ll testall.log

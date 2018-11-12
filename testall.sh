@@ -18,7 +18,6 @@ CC="cc"
 # Path to the bittwiddler compiler.  Usually "./bittwiddler.native"
 # Try "_build/bittwiddler.native" if ocamlbuild was unable to create a symbolic link.
 BITTWIDDLER="./bittwiddler.native"
-#BITTWIDDLER="_build/bittwiddler.native"
 
 # Set time limit for all operations
 ulimit -t 30
@@ -94,9 +93,8 @@ Check() {
     generatedfiles="$generatedfiles ${basename}.ll ${basename}.s ${basename}.exe ${basename}.out" &&
     Run "$BITTWIDDLER" "$1" ">" "${basename}.ll" &&
     Run "$LLC" "-relocation-model=pic" "${basename}.ll" ">" "${basename}.s" &&
-    #Run "$CC" "-o" "${basename}.exe" "${basename}.s" "printbig.o" &&
     Run "$CC" "-o" "${basename}.exe" "${basename}.s" &&
-    Run "./${basename}.exe" > "${basename}.out" &&
+    Run "./${basename}.exe" ">" "${basename}.out"
     Compare ${basename}.out ${reffile}.out ${basename}.diff
 
     # Report the status and clean up the generated files
@@ -166,18 +164,12 @@ LLIFail() {
 
 which "$LLI" >> $globallog || LLIFail
 
-#if [ ! -f printbig.o ]
-#then
-#    echo "Could not find printbig.o"
-#    echo "Try \"make printbig.o\""
-#    exit 1
-#fi
-
 if [ $# -ge 1 ]
 then
     files=$@
 else
-    files="tests/test-*.bt tests/fail-*.bt"
+#    files="tests/test-*.bt tests/fail-*.bt"
+    files="tests/test-*.bt"
 fi
 
 for file in $files

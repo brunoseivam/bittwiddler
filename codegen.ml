@@ -6,35 +6,42 @@ open Sast
 
 module StringMap = Map.Make(String)
 
-let translate (prog) =
+let translate prog =
     let context = L.global_context () in
 
     (* LLVM compilation module *)
     let the_module = L.create_module context "BitTwiddler" in
 
     (* Get types from context *)
-    let void_t = L.void_type context
-    and i8_t   = L.i8_type context in
+    let i8_t   = L.i8_type context
+    and i32_t  = L.i32_type context in
 
     (* Built-ins *)
     let printf_t : L.lltype =
-        L.function_type void_t [| L.pointer_type i8_t |]
+        L.var_arg_function_type i32_t [| L.pointer_type i8_t |]
     in
 
     let printf_func : L.llvalue =
         L.declare_function "printf" printf_t the_module
     in
 
-    (* Parse body builder *)
     let build_parse_body parse_lines =
-        let the_function = L.define_function "parse" void_t the_module in
+        let parse_t = L.function_type i32_t [| |] in
+        (* TODO: here I named parse as main; I should modify parse -> main
+         * everywhere, even in spec *)
+        let the_function = L.define_function "main" parse_t the_module in
         let builder = L.builder_at_end context (L.entry_block the_function) in
+
+        (* TODO: this newline shouldn't be here. Newlines specified in .bt
+         * source files are not escaped! *)
+        let str_fmt = L.build_global_stringptr "%s\n" "fmt" builder in
 
         (* Expression builder *)
         let rec expr builder e = match e with
-            A.LString(s) -> L.build_global_stringptr s "globalstr" builder
+            A.LString(s) -> L.build_global_stringptr s "" builder
           | A.Call(A.Id("emit"), [ex]) ->
-                L.build_call printf_func [| expr builder ex |] "printf" builder
+                  L.build_call printf_func [| str_fmt; (expr builder ex) |]
+                    "printf" builder
           | _ -> raise (Failure ("not implemented: " ^ A.string_of_expr e))
         in
 
@@ -50,7 +57,7 @@ let translate (prog) =
         in
 
         let builder = List.fold_left block builder parse_lines in
-        add_terminal builder L.build_ret_void
+        add_terminal builder (L.build_ret (L.const_int i32_t 0))
     in
 
     match prog with SProgram(_, A.Parse(A.Block(parse_lines))) ->
