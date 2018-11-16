@@ -4,7 +4,7 @@ open Ast
 
 (* For now, a semantically checked program is exactly like a program *)
 
-type sprogram = SProgram of pdecl list * block
+type sprogram = SProgram of program_decl list * block_item list
 
 (* Pretty-printing *)
 

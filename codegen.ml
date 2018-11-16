@@ -60,7 +60,7 @@ let translate prog =
         add_terminal builder (L.build_ret (L.const_int i32_t 0))
     in
 
-    match prog with SProgram(_, A.Block(parse_lines)) ->
+    match prog with SProgram(_, parse_lines) ->
         build_parse_body parse_lines;
 
     the_module

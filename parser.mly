@@ -68,37 +68,14 @@ params_opt:
     /* empty */          { [] }
   | LPAREN params RPAREN { $2 }
 
-template:
-    TEMPLATE ID_T params_opt block { Template($2, List.rev $3, $4) }
-
-func:
-    FUNCTION ID params_opt COLON type_ block { Func($2, $5, List.rev $3, $6) }
-
 opt_hide:
     /* empty */ { false }
   | AT          { true  }
 
-
 var:
-    VAR opt_hide ID   COLON type_ ASSIGN expr SEMICOLON {  Var($2, $3, Some $5, Some $7) }
-  | VAR opt_hide ID   COLON type_             SEMICOLON {  Var($2, $3, Some $5, None   ) }
-  | VAR opt_hide ID               ASSIGN expr SEMICOLON {  Var($2, $3, None,    Some $5) }
-  | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK  ASSIGN expr SEMICOLON { TVar( $3, Some $7, Some $10) }
-  | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK              SEMICOLON { TVar( $3, Some $7, None   )  }
-  | VAR LBRACK expr RBRACK                           ASSIGN expr SEMICOLON { TVar( $3, None,    Some $6)  }
-
-decls_opt:
-    /* empty */ { [] }
-  | decls       { $1 }
-
-decls:
-    decl       { [$1] }
-  | decls decl { $2 :: $1 }
-
-decl:
-    template { $1 }
-  | func     { $1 }
-  | var      { $1 }
+    VAR opt_hide ID COLON type_ ASSIGN expr SEMICOLON {  Var($2, $3, Some $5, Some $7) }
+  | VAR opt_hide ID COLON type_             SEMICOLON {  Var($2, $3, Some $5, None   ) }
+  | VAR opt_hide ID             ASSIGN expr SEMICOLON {  Var($2, $3, None,    Some $5) }
 
 match_:
     MATCH expr match_block { Match($2, $3) }
@@ -112,7 +89,6 @@ match_arms:
 
 match_arm:
     expr ARM block  { ($1, $3) }
-
 
 if_:
     IF expr block { [(Some $2, $3)] }
@@ -195,7 +171,7 @@ expr:
 
 block_stmt:
     expr SEMICOLON        { Expr($1)   }
-  | decl                  { BDecl($1)  }
+  | var                   { LVar($1)   }
   | RETURN expr SEMICOLON { Return($2) }
 
 block_stmts:
@@ -203,9 +179,40 @@ block_stmts:
   | block_stmts block_stmt { $2 :: $1 }
 
 block:
-    LBRACE block_stmts RBRACE { Block(List.rev $2) }
-  | LBRACE RBRACE             { Block([])          }
+    LBRACE block_stmts RBRACE { List.rev $2 }
+  | LBRACE RBRACE             { []          }
+
+tblock_stmt:
+    var                   { Field($1) }
+  | expr SEMICOLON        { TExpr($1) }
+  | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK  ASSIGN expr SEMICOLON
+                          { TField( $3, Some $7, Some $10) }
+  | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK              SEMICOLON
+                          { TField( $3, Some $7, None   )  }
+  | VAR LBRACK expr RBRACK                           ASSIGN expr SEMICOLON
+                          { TField( $3, None,    Some $6)  }
+
+tblock_stmts:
+    tblock_stmt              { [$1] }
+  | tblock_stmts tblock_stmt { $2 :: $1 }
+
+tblock:
+    LBRACE tblock_stmts RBRACE { List.rev $2 }
+  | LBRACE RBRACE              { []          }
+
+program_decl:
+    TEMPLATE ID_T params_opt tblock          { Template($2, List.rev $3, $4) }
+  | FUNCTION ID params_opt COLON type_ block { Func($2, $5, List.rev $3, $6) }
+  | var                                      { GVar($1)                      }
+
+program_decls_opt:
+    /* empty */   { [] }
+  | program_decls { $1 }
+
+program_decls:
+    program_decl               { [$1] }
+  | program_decls program_decl { $2 :: $1 }
 
 program:
-    decls_opt PARSE block EOF { Program(List.rev $1, $3) }
+    program_decls_opt PARSE block EOF { Program(List.rev $1, $3) }
 

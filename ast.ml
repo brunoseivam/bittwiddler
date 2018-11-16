@@ -12,11 +12,11 @@ type ptype =
   | TString
   | TId of string
 
-type block =
-    Block of block_line list
+type var =
+    Var of bool * string * type_ option * expr option
 
-and block_line =
-    BDecl of pdecl
+and block_item =
+    LVar of var (* local variable declaration *)
   | Expr of expr
   | Return of expr
 
@@ -29,10 +29,10 @@ and expr =
   | EType of ptype
   | Binop of expr * op * expr
   | Unop of uop * expr
-  | Match of expr * (expr * block) list
-  | Cond of (expr option * block) list
-  | For of string list * expr * block
-  | While of expr * block
+  | Match of expr * (expr * block_item list) list
+  | Cond of (expr option * block_item list) list
+  | For of string list * expr * block_item list
+  | While of expr * block_item list
   | Call of string * expr list
   | TCall of ptype * expr list
 
@@ -40,16 +40,20 @@ and type_ =
     ScalarType of ptype * expr list option
   | ArrayType of ptype * expr list option * expr option
 
-and pdecl =
-    Template of string * param list * block
-  | Func of string * type_ * param list * block
-  | Var of bool * string * type_ option * expr option
-  | TVar of expr * expr option * expr option
-
 and param =
     Param of string * type_
 
-type program = Program of pdecl list * block
+type template_item =
+    Field of var
+  | TField of expr * expr option * expr option
+  | TExpr of expr
+
+type program_decl =
+    Func of string * type_ * param list * block_item list
+  | Template of string * param list * template_item list
+  | GVar of var (* global variable *)
+
+type program = Program of program_decl list * block_item list
 
 (* Pretty-printing functions *)
 
@@ -104,13 +108,13 @@ let rec string_of_expr = function
         ^ "(" ^ String.concat "," (List.map string_of_expr exprs) ^ ")"
 
 and string_of_block = function
-        Block(lines) ->
+        lines ->
             "{\n"
             ^ String.concat "\n" (List.map string_of_block_line lines)
             ^ "\n}"
 
 and string_of_block_line = function
-        BDecl(d) -> string_of_pdecl d ^ ";"
+        LVar(v) -> string_of_var v ^ ";"
       | Expr(e) -> string_of_expr e ^ ";"
       | Return(e) -> "return " ^ string_of_expr e ^ ";"
 
@@ -154,28 +158,43 @@ and
     []     -> ""
   | params -> "(" ^ String.concat "," (List.map string_of_param params) ^ ") "
 and
-    string_of_pdecl = function
-    Template(id, params, block) ->
-        "template " ^ id ^ " "
-        ^ string_of_params params
-        ^ string_of_block block
-  | Func(id, type_, params, block) ->
-        "func " ^ id ^ " "
-        ^ string_of_params params
-        ^ ":" ^ string_of_type type_ ^ " "
-        ^ string_of_block block
-  | Var(hidden, id, type_, expr) ->
+    string_of_var = function
+    Var(hidden, id, type_, expr) ->
         "var"
         ^ (match hidden with true -> "@ " | false -> " ")
         ^ id
         ^ (match type_ with Some(t) -> " : " ^ string_of_type t | None -> "")
         ^ (match expr with Some(e) -> " = " ^ string_of_expr e | None -> "")
-  | TVar(vid, vtype, vval) ->
+
+
+let string_of_tblock_line = function
+    Field(v) -> string_of_var v ^ ";"
+  | TExpr(e) -> string_of_expr e ^ ";"
+  | TField(vid, vtype, vval) ->
         "var [ " ^ string_of_expr vid ^ " ]"
         ^ (match vtype with Some(t) -> " : [ " ^ string_of_expr t ^ " ]"
                          | None -> "")
         ^ (match vval with Some(v) -> " = " ^ string_of_expr v
                         | None -> "")
+
+let string_of_tblock = function
+        lines ->
+            "{\n"
+            ^ String.concat "\n" (List.map string_of_tblock_line lines)
+            ^ "\n}"
+
+let string_of_pdecl = function
+    Template(id, params, block) ->
+        "template " ^ id ^ " "
+        ^ string_of_params params
+        ^ string_of_tblock block
+  | Func(id, type_, params, block) ->
+        "func " ^ id ^ " "
+        ^ string_of_params params
+        ^ ":" ^ string_of_type type_ ^ " "
+        ^ string_of_block block
+  | GVar(v) ->
+        string_of_var v
 
 let string_of_program = function
     Program(pdecls, block) ->
