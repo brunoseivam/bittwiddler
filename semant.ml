@@ -31,6 +31,14 @@ let check prog =
     let pdecl_names = List.map (pdecl_name) pdecls in
     let _ = check_dup "Global Declaration" "globals" pdecl_names in
 
+    (* Check for invalid global variables *)
+    let check_gvar = function
+        GVar(Var(true,id,_,_)) ->
+            raise (Failure ("Global variables can't be hidden: " ^ id))
+      | _ -> ()
+    in
+    let _ = List.map (check_gvar) pdecls in
+
     (* For now, we expect a main block with a lone emit call.
      * This is a "Hello, world!" compiler. *)
     match main with
