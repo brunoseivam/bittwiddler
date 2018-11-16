@@ -39,7 +39,7 @@ let translate prog =
         (* Expression builder *)
         let rec expr builder e = match e with
             A.LString(s) -> L.build_global_stringptr s "" builder
-          | A.Call(A.Id("emit"), [ex]) ->
+          | A.Call("emit", [ex]) ->
                   L.build_call printf_func [| str_fmt; (expr builder ex) |]
                     "printf" builder
           | _ -> raise (Failure ("not implemented: " ^ A.string_of_expr e))
@@ -60,7 +60,7 @@ let translate prog =
         add_terminal builder (L.build_ret (L.const_int i32_t 0))
     in
 
-    match prog with SProgram(_, A.Parse(A.Block(parse_lines))) ->
+    match prog with SProgram(_, A.Block(parse_lines)) ->
         build_parse_body parse_lines;
 
     the_module

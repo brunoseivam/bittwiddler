@@ -38,9 +38,6 @@
 
 %%
 
-id:
-    ID { Id($1) }
-
 typename:
     INT_T       { TInt($1)    }
   | FLOAT_T     { TFloat($1)  }
@@ -61,7 +58,7 @@ type_:
   | typename typeargs_opt LBRACK expr RBRACK { ArrayType($1, $2, Some $4) }
 
 param:
-    id COLON type_ { Param($1, $3) }
+    ID COLON type_ { Param($1, $3) }
 
 params:
     param              { [$1]     }
@@ -75,7 +72,7 @@ template:
     TEMPLATE ID_T params_opt block { Template($2, List.rev $3, $4) }
 
 func:
-    FUNCTION id params_opt COLON type_ block { Func($2, $5, List.rev $3, $6) }
+    FUNCTION ID params_opt COLON type_ block { Func($2, $5, List.rev $3, $6) }
 
 opt_hide:
     /* empty */ { false }
@@ -83,9 +80,9 @@ opt_hide:
 
 
 var:
-    VAR opt_hide id   COLON type_ ASSIGN expr SEMICOLON {  Var($2, $3, Some $5, Some $7) }
-  | VAR opt_hide id   COLON type_             SEMICOLON {  Var($2, $3, Some $5, None   ) }
-  | VAR opt_hide id               ASSIGN expr SEMICOLON {  Var($2, $3, None,    Some $5) }
+    VAR opt_hide ID   COLON type_ ASSIGN expr SEMICOLON {  Var($2, $3, Some $5, Some $7) }
+  | VAR opt_hide ID   COLON type_             SEMICOLON {  Var($2, $3, Some $5, None   ) }
+  | VAR opt_hide ID               ASSIGN expr SEMICOLON {  Var($2, $3, None,    Some $5) }
   | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK  ASSIGN expr SEMICOLON { TVar( $3, Some $7, Some $10) }
   | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK              SEMICOLON { TVar( $3, Some $7, None   )  }
   | VAR LBRACK expr RBRACK                           ASSIGN expr SEMICOLON { TVar( $3, None,    Some $6)  }
@@ -114,11 +111,11 @@ match_arms:
   | match_arms match_arm { $2 :: $1 }
 
 match_arm:
-    expr ARM block  { Arm($1, $3) }
+    expr ARM block  { ($1, $3) }
 
 
 if_:
-    IF expr block { [If(Some $2, $3)] }
+    IF expr block { [(Some $2, $3)] }
 
 opt_elseifs:
     /* empty */ { [] }
@@ -129,18 +126,18 @@ elseifs:
   | elseifs elseif { $2::$1 }
 
 elseif:
-    ELIF expr block { If(Some $2, $3) }
+    ELIF expr block { (Some $2, $3) }
 
 opt_else:
     /* empty */     { [] }
-  | ELSE block      { [If(None, $2)] }
+  | ELSE block      { [(None, $2)] }
 
 conditional:
     if_ opt_elseifs opt_else { Cond($1 @ (List.rev $2) @ $3) }
 
 forvars:
-    id                { [$1]   }
-  | forvars COMMA id  { $3::$1 }
+    ID                { [$1]   }
+  | forvars COMMA ID  { $3::$1 }
 
 for_:
     FOR forvars IN expr block { For($2, $4, $5) }
@@ -191,9 +188,9 @@ expr:
   | for_        { $1 }
   | while_      { $1 }
 
-  | id       LPAREN expr_list RPAREN { Call($1, List.rev $3)  }
+  | ID       LPAREN expr_list RPAREN { Call($1, List.rev $3)  }
 
-  | id       { EId($1) }
+  | ID       { Id($1) }
   | typename { EType($1) }
 
 block_stmt:
@@ -210,5 +207,5 @@ block:
   | LBRACE RBRACE             { Block([])          }
 
 program:
-    decls_opt PARSE block EOF { Program(List.rev $1, Parse($3)) }
+    decls_opt PARSE block EOF { Program(List.rev $1, $3) }
 

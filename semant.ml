@@ -26,8 +26,8 @@ let check prog =
     (* Check pdecls for duplicates *)
     let pdecl_name = function
         Template(id,_,_) -> id
-      | Func(Id(id),_,_,_) -> id
-      | Var(_,Id(id),_,_) -> id
+      | Func(id,_,_,_) -> id
+      | Var(_,id,_,_) -> id
       | TVar(_,_,_) -> raise (Failure ("can't declare TVar in pdecl"))
     in
     let pdecl_names = List.map (pdecl_name) pdecls in
@@ -36,7 +36,7 @@ let check prog =
     (* For now, we expect a parse block with a lone emit call.
      * This is a "Hello, world!" compiler. *)
     match parse with
-        Parse(Block([Expr(Call(Id("emit"), [LString(_)]))])) ->
+        Block([Expr(Call("emit", [LString(_)]))]) ->
             SProgram(pdecls, parse)
       | _ -> raise (Failure "expected parse { emit(\"a string\"); }")
 
