@@ -39,10 +39,10 @@
 %%
 
 typename:
-    INT_T       { TInt($1)    }
-  | FLOAT_T     { TFloat($1)  }
-  | STRING_T    { TString     }
-  | ID_T        { TId($1)    }
+    INT_T             { TInt($1)    }
+  | FLOAT_T           { TFloat($1)  }
+  | STRING_T          { TString     }
+  | ID_T typeargs_opt { TId($1, $2) }
 
 typeargs_opt:
     /* empty */            { None               }
@@ -53,9 +53,9 @@ typeargs:
   | typeargs COMMA expr { $3::$1 }
 
 type_:
-    typename typeargs_opt                    { ScalarType($1, $2)         }
-  | typename typeargs_opt LBRACK RBRACK      { ArrayType($1, $2, None)    }
-  | typename typeargs_opt LBRACK expr RBRACK { ArrayType($1, $2, Some $4) }
+    typename                    { ScalarType($1)         }
+  | typename LBRACK RBRACK      { ArrayType($1, None)    }
+  | typename LBRACK expr RBRACK { ArrayType($1, Some $3) }
 
 param:
     ID COLON type_ { Param($1, $3) }

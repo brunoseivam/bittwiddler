@@ -10,9 +10,9 @@ type ptype =
   | TInt of (string * int * string)
   | TFloat of int
   | TString
-  | TId of string
+  | TId of string * (expr list) option
 
-type var =
+and var =
     Var of bool * string * type_ option * expr option
 
 and block_item =
@@ -37,8 +37,8 @@ and expr =
   | TCall of ptype * expr list
 
 and type_ =
-    ScalarType of ptype * expr list option
-  | ArrayType of ptype * expr list option * expr option
+    ScalarType of ptype
+  | ArrayType of ptype * expr option
 
 and param =
     Param of string * type_
@@ -67,13 +67,18 @@ let string_of_op = function
 let string_of_uop = function
     BwNot -> "~" | Not -> "!" | Neg -> "-"
 
-let string_of_ptype = function
+let rec string_of_targs = function
+        Some(args) ->
+            "(" ^ (String.concat "," (List.map string_of_expr args)) ^ ")"
+      | None -> ""
+
+and string_of_ptype = function
     TInt(u, w, e) -> u ^ "int" ^ string_of_int w ^ e
   | TFloat(w) -> "float" ^ string_of_int w
-  | TId(id) -> id
+  | TId(id, args) -> id ^ string_of_targs args
   | TString -> "string"
 
-let rec string_of_expr = function
+and string_of_expr = function
     LInt(i) -> string_of_int i
   | LFloat(f) -> string_of_float f
   | LString(s) -> "\"" ^ s ^ "\""
@@ -137,16 +142,9 @@ and string_of_else = function
         ^ string_of_block b
 
 and string_of_type = function
-    ScalarType(ptype, args) ->
+    ScalarType(ptype) -> string_of_ptype ptype
+  | ArrayType(ptype, count) ->
         string_of_ptype ptype
-        ^ (match args with
-            Some(a) -> "(" ^ String.concat "," (List.map string_of_expr a) ^ ")"
-          | None -> "")
-  | ArrayType(ptype, args, count) ->
-        string_of_ptype ptype
-        ^ (match args with
-            Some(a) -> "(" ^ String.concat "," (List.map string_of_expr a) ^ ")"
-          | None -> "")
         ^ "["
         ^ (match count with Some(e) -> string_of_expr e | None -> "")
         ^ "]"
