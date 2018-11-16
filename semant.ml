@@ -16,12 +16,12 @@ let check_dup kind where names =
 (* Semantic checking of the AST. Returns an SAST if successful,
  * throws an exception if something is wrong.
  *
- * Check each global declaration, then the declarations in parse.
+ * Check each global declaration, then the declarations in main.
  *)
 
 let check prog =
-    let pdecls, parse = match prog with
-        Program(pdecls, parse) -> (pdecls, parse)
+    let pdecls, main = match prog with
+        Program(pdecls, main) -> (pdecls, main)
     in
     (* Check pdecls for duplicates *)
     let pdecl_name = function
@@ -32,10 +32,10 @@ let check prog =
     let pdecl_names = List.map (pdecl_name) pdecls in
     let _ = check_dup "pdecl" "globals" pdecl_names in
 
-    (* For now, we expect a parse block with a lone emit call.
+    (* For now, we expect a main block with a lone emit call.
      * This is a "Hello, world!" compiler. *)
-    match parse with
+    match main with
         [Expr(Call("emit", [LString(_)]))] ->
-            SProgram(pdecls, parse)
-      | _ -> raise (Failure "expected parse { emit(\"a string\"); }")
+            SProgram(pdecls, main)
+      | _ -> raise (Failure "expected main { emit(\"a string\"); }")
 

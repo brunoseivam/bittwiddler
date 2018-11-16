@@ -200,5 +200,5 @@ let string_of_program = function
     Program(pdecls, block) ->
         String.concat "\n" (List.map string_of_pdecl pdecls)
         ^ "\n"
-        ^ "parse" ^ string_of_block block
+        ^ "main" ^ string_of_block block
 

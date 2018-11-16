@@ -1,7 +1,7 @@
 %{ open Ast %}
 
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK LANGLE RANGLE
-%token TEMPLATE PARSE FUNCTION RETURN VAR
+%token TEMPLATE MAIN FUNCTION RETURN VAR
 %token FOR IN WHILE MATCH ARM IF ELSE ELIF
 %token DOT COMMA COLON AT SEMICOLON ASSIGN
 %token PLUS MINUS TIMES DIV REM
@@ -214,5 +214,5 @@ program_decls:
   | program_decls program_decl { $2 :: $1 }
 
 program:
-    program_decls_opt PARSE block EOF { Program(List.rev $1, $3) }
+    program_decls_opt MAIN block EOF { Program(List.rev $1, $3) }
 

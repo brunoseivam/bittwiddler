@@ -37,7 +37,7 @@ rule token = parse
     | '['  { LBRACK } | ']'  { RBRACK }
 
     (* Keywords *)
-    | "template" { TEMPLATE  } | "parse"  { PARSE  }
+    | "template" { TEMPLATE  } | "main"   { MAIN  }
     | "func"     { FUNCTION  } | "return" { RETURN }
     | "for"      { FOR       } | "in"     { IN     }
     | "while"    { WHILE     }

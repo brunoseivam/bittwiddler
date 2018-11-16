@@ -25,11 +25,9 @@ let translate prog =
         L.declare_function "printf" printf_t the_module
     in
 
-    let build_parse_body parse_lines =
-        let parse_t = L.function_type i32_t [| |] in
-        (* TODO: here I named parse as main; I should modify parse -> main
-         * everywhere, even in spec *)
-        let the_function = L.define_function "main" parse_t the_module in
+    let build_main_body main_lines =
+        let main_t = L.function_type i32_t [| |] in
+        let the_function = L.define_function "main" main_t the_module in
         let builder = L.builder_at_end context (L.entry_block the_function) in
 
         (* TODO: this newline shouldn't be here. Newlines specified in .bt
@@ -56,11 +54,11 @@ let translate prog =
           | _ -> raise (Failure ("block builder not implemented"))
         in
 
-        let builder = List.fold_left block builder parse_lines in
+        let builder = List.fold_left block builder main_lines in
         add_terminal builder (L.build_ret (L.const_int i32_t 0))
     in
 
-    match prog with SProgram(_, parse_lines) ->
-        build_parse_body parse_lines;
+    match prog with SProgram(_, main_lines) ->
+        build_main_body main_lines;
 
     the_module
