@@ -20,17 +20,16 @@ let check_dup kind where names =
  *)
 
 let check prog =
-    let pdecls, main = match prog with
-        Program(pdecls, main) -> (pdecls, main)
-    in
-    (* Check pdecls for duplicates *)
+    let Program(pdecls, main) = prog in
+
+    (* Check program_decls for duplicates *)
     let pdecl_name = function
         Template(id,_,_) -> id
       | Func(id,_,_,_) -> id
       | GVar(Var(_,id,_,_)) -> id
     in
     let pdecl_names = List.map (pdecl_name) pdecls in
-    let _ = check_dup "pdecl" "globals" pdecl_names in
+    let _ = check_dup "Global Declaration" "globals" pdecl_names in
 
     (* For now, we expect a main block with a lone emit call.
      * This is a "Hello, world!" compiler. *)
