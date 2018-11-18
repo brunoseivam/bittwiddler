@@ -13,6 +13,18 @@ let check_dup kind where names =
       | _ :: t -> dups t
     in dups sorted
 
+(* Check bindings for duplicates and void types *)
+let check_binds params where =
+    let binds = List.map (function Param(id,type_) -> (id,type_)) params in
+    let _ = check_dup "parameter" where (List.map fst binds) in
+    List.iter (function
+        (id,ScalarType(TNone)) ->
+            raise (Failure ("illegal " ^ id ^ " : None in " ^ where))
+      | (id,ArrayType(TNone,_)) ->
+            raise (Failure ("illegal " ^ id ^ " : None[] in " ^ where))
+      | _ -> ()
+    ) binds
+
 (* Semantic checking of the AST. Returns an SAST if successful,
  * throws an exception if something is wrong.
  *
@@ -22,22 +34,33 @@ let check_dup kind where names =
 let check prog =
     let Program(pdecls, main) = prog in
 
-    (* Check program_decls for duplicates *)
-    let pdecl_name = function
+    (* Add built-in functions and main to list of program declarations *)
+    let built_in_funcs = [
+        Func("emit", ScalarType(TNone), [], [])
+    ] in
+    let main_func = Func("main", ScalarType(TNone), [], main) in
+    let pdecls = built_in_funcs @ pdecls @ [main_func] in
+
+    (* Extract names from all declarations *)
+    let pdecl_names = List.map (function
         Template(id,_,_) -> id
       | Func(id,_,_,_) -> id
       | GVar(Var(_,id,_,_)) -> id
-    in
-    let pdecl_names = List.map (pdecl_name) pdecls in
-    let _ = check_dup "Global Declaration" "globals" pdecl_names in
+    ) pdecls in
 
-    (* Check for invalid global variables *)
-    let check_gvar = function
-        GVar(Var(true,id,_,_)) ->
+    (* Check for duplicates *)
+    let _ = check_dup "declaration" "globals" pdecl_names in
+
+    (* Check program declarations *)
+    let _ = List.iter (function
+        Func(id,_,params,_) ->
+            check_binds params id
+      | GVar(Var(true,id,_,_)) ->
             raise (Failure ("Global variables can't be hidden: " ^ id))
+      | Template(id,params,_) ->
+            check_binds params id
       | _ -> ()
-    in
-    let _ = List.map (check_gvar) pdecls in
+    ) pdecls in
 
     (* For now, we expect a main block with a lone emit call.
      * This is a "Hello, world!" compiler. *)
