@@ -11,6 +11,9 @@ type ptype =
   | TFloat of int
   | TString
   | TId of string * (expr list) option
+  | TAInt (* 'abstract' integer (no size info) *)
+  | TAFloat (* 'abstract' float (no size info) *)
+  | TNone
 
 and var =
     Var of bool * string * type_ option * expr option
@@ -77,6 +80,9 @@ and string_of_ptype = function
   | TFloat(w) -> "float" ^ string_of_int w
   | TId(id, args) -> id ^ string_of_targs args
   | TString -> "string"
+  | TAInt -> "int"
+  | TAFloat -> "float"
+  | TNone -> "None"
 
 and string_of_expr = function
     LInt(i) -> string_of_int i

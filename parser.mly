@@ -13,6 +13,7 @@
 %token <string * int * string> INT_T
 %token <int> FLOAT_T
 %token STRING_T
+%token NONE_T
 %token <int> INT
 %token <float> FLOAT
 %token <string> STRING
@@ -43,6 +44,7 @@ typename:
   | FLOAT_T           { TFloat($1)  }
   | STRING_T          { TString     }
   | ID_T typeargs_opt { TId($1, $2) }
+  | NONE_T            { TNone       }
 
 typeargs_opt:
     /* empty */            { None               }

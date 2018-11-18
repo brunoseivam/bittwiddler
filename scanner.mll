@@ -72,6 +72,7 @@ rule token = parse
 
     | "float"(float_wid as w) { FLOAT_T(int_of_string w) }
     | "string"  { STRING_T }
+    | "None"    { NONE_T }
 
     (* Identifier *)
     | id as id  { ID(id) }
