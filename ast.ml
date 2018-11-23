@@ -13,6 +13,7 @@ type ptype =
   | TId of string * (expr list) option
   | TAInt (* 'abstract' integer (no size info) *)
   | TAFloat (* 'abstract' float (no size info) *)
+  | TType (* the type of types *)
   | TNone
 
 and var =
@@ -45,6 +46,8 @@ and type_ =
 
 and param =
     Param of string * type_
+
+let boolean = ScalarType(TInt("uint", 8, ""))
 
 type template_item =
     Field of var
@@ -82,6 +85,7 @@ and string_of_ptype = function
   | TString -> "string"
   | TAInt -> "int"
   | TAFloat -> "float"
+  | TType -> "Type"
   | TNone -> "None"
 
 and string_of_expr = function
