@@ -36,11 +36,12 @@ let translate prog =
 
         (* Expression builder *)
         let rec expr builder e = match e with
-            A.LString(s) -> L.build_global_stringptr s "" builder
-          | A.Call("emit", [ex]) ->
+            (_, SLString(s)) -> L.build_global_stringptr s "" builder
+          | (_, SCall("emit", [ex])) ->
                   L.build_call printf_func [| str_fmt; (expr builder ex) |]
                     "printf" builder
-          | _ -> raise (Failure ("not implemented: " ^ A.string_of_expr e))
+          (*| _ -> raise (Failure ("not implemented: " ^ A.string_of_expr e))*)
+          | _ -> raise (Failure "not implemented")
         in
 
         let add_terminal builder instr =
@@ -50,7 +51,7 @@ let translate prog =
         in
 
         let block builder = function
-            A.Expr(e) -> ignore(expr builder e); builder
+            SExpr(e) -> ignore(expr builder e); builder
           | _ -> raise (Failure ("block builder not implemented"))
         in
 
