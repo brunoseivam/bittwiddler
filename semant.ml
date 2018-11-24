@@ -2,6 +2,7 @@
 
 open Ast
 open Sast
+open Emit
 
 (* Look for duplicates in a list of names *)
 let check_dup kind where names =
@@ -164,19 +165,28 @@ let check prog =
               | And | Or | Lt | LtEq | Eq | NEq | GtEq | Gt -> boolean
                 (* Array subscript: returned type is the type of a single
                  * element *)
-              | Subscr -> let ArrayType(at,_) = t1' in ScalarType(at)
+              | Subscr -> (match t1' with
+                    ArrayType(at,_) -> ScalarType(at)
+                  | _ -> raise (Failure (
+                      "Operator " ^ string_of_op op ^ " used on non-array")))
               | Assign -> t2'
                 (* TODO: Access operator *)
               | _ -> raise (failure t1' t2')
             in
             (ty, SBinop((t1',e1'), op, (t2',e2')))
+        | Call("emit",el) ->
+                (match el with
+                    [(LString s)]  -> parse_emit_fmt s;
+                        (ScalarType TNone, SCall("emit", List.map expr el))
+                  | _ -> raise (Failure ("emit requires one literal string "
+                                 ^ "argument")))
         | Call(id,el) -> (ScalarType TNone, SCall(id, List.map expr el))
-        | _ -> raise (Failure ("Unimplemented: " ^ string_of_expr e))
+        | _ -> raise (Failure ("Not implemented: " ^ string_of_expr e))
     in
 
     let sblock_item = function
         Expr(ex) -> let (t, e) = expr ex in SExpr(t, e)
-      | _ -> raise (Failure ("Unimplemented"))
+      | _ -> raise (Failure ("Not implemented"))
     in
 
     let smain = List.map sblock_item main in
