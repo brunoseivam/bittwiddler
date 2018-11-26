@@ -1,1 +1,1 @@
-Fatal error: exception Failure("duplicate declaration in globals: x")
+Fatal error: exception Failure("duplicate variable declaration: x")

@@ -18,7 +18,7 @@ and sx =
   | SFor of string list * sexpr * sblock_item list
   | SWhile of sexpr * sblock_item list
   | SCall of string * sexpr list
-  | STCall of ptype * expr list
+  | STCall of ptype * sexpr list
 
 and sblock_item =
     SLVar of svar (* local variable declaration *)
@@ -26,18 +26,23 @@ and sblock_item =
   | SReturn of sexpr
 
 and svar =
-    SVar of bool * string * type_ option * expr option
+    SVar of bool * string * type_ * sexpr option
 
 type sparam =
     SParam of string * type_
 
+type stemplate_item =
+    Field of svar
+  | TField of sexpr * sexpr option * sexpr option
+  | TExpr of expr
+
 type sprogram_decl =
     SFunc of string * type_ * sparam list * sblock_item list
-(*| STemplate of string * sparam list * stemplate_item list *)
+  | STemplate of string * sparam list * stemplate_item list
   | SGVar of svar (* global variable *)
 
 
-type sprogram = SProgram of sprogram_decl list * sblock_item list
+type sprogram = SProgram of sprogram_decl list
 
 (* Pretty-printing *)
 
