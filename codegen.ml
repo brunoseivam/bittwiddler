@@ -71,14 +71,63 @@ let translate prog =
                 L.const_float (ltype_of_type t) f
           | (_, SLString(s)) ->
                 L.build_global_stringptr s "" builder
+          | (A.ScalarType t, SBinop (e1, op, e2)) -> (match t with
+                A.TAInt -> raise (Failure "internal error: got abstract int")
+              | A.TAFloat -> raise (Failure "internal error: got abstract float")
+              | A.TInt(u,_,_) ->
+                    let u = u="u"
+                    and e1' = expr builder e1
+                    and e2' = expr builder e2 in
+                    (match op with
+                      A.Plus    -> L.build_add
+                    | A.Minus   -> L.build_sub
+                    | A.Times   -> L.build_mul
+                    | A.Div     -> if u then L.build_udiv else L.build_sdiv
+                    | A.Rem     -> if u then L.build_urem else L.build_srem
+                    | A.LShift  -> L.build_shl
+                    | A.RShift  -> if u then L.build_lshr else L.build_ashr
+                    | A.BwOr  | A.Or  -> L.build_or
+                    | A.BwAnd | A.And -> L.build_and
+                    | A.Lt      -> L.build_icmp (if u then L.Icmp.Ult else L.Icmp.Slt)
+                    | A.LtEq    -> L.build_icmp (if u then L.Icmp.Ule else L.Icmp.Sle)
+                    | A.Eq      -> L.build_icmp L.Icmp.Eq
+                    | A.NEq     -> L.build_icmp L.Icmp.Ne
+                    | A.GtEq    -> L.build_icmp (if u then L.Icmp.Uge else L.Icmp.Sge)
+                    | A.Gt      -> L.build_icmp (if u then L.Icmp.Ugt else L.Icmp.Sgt)
+                    | _ -> raise (Failure ("internal error: operation "
+                                           ^ A.string_of_op op
+                                           ^ " not implemented for integers"))
+                    ) e1' e2' "tmp" builder
+              | A.TFloat(_) ->
+                    let e1' = expr builder e1
+                    and e2' = expr builder e2 in
+                    (match op with
+                      A.Plus    -> L.build_fadd
+                    | A.Minus   -> L.build_fsub
+                    | A.Times   -> L.build_fmul
+                    | A.Div     -> L.build_fdiv
+                    | A.Lt      -> L.build_fcmp L.Fcmp.Olt
+                    | A.LtEq    -> L.build_fcmp L.Fcmp.Ole
+                    | A.Eq      -> L.build_fcmp L.Fcmp.Oeq
+                    | A.NEq     -> L.build_fcmp L.Fcmp.One
+                    | A.GtEq    -> L.build_fcmp L.Fcmp.Oge
+                    | A.Gt      -> L.build_fcmp L.Fcmp.Ogt
+                    | _ -> raise (Failure ("internal error: operation "
+                                           ^ A.string_of_op op
+                                           ^ " not implemented for floats"))
+                    ) e1' e2' "tmp" builder
+               | _ -> raise (Failure ("internal error: operation "
+                                      ^ A.string_of_op op
+                                      ^ " not implemented for type "
+                                      ^ A.string_of_ptype t))
+            )
           | (_, SCall("emit", args)) ->
                 L.build_call
                     printf_func
                     (Array.of_list (List.map (expr builder) args))
                     "printf"
                     builder
-          (*| _ -> raise (Failure ("not implemented: " ^ A.string_of_expr e))*)
-          | _ -> raise (Failure "expr not implemented")
+          | _ -> raise (Failure ("expr not implemented: " ^ string_of_sexpr e))
         in
 
         let add_terminal builder instr =
