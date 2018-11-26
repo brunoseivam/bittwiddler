@@ -32,21 +32,113 @@ type sparam =
     SParam of string * type_
 
 type stemplate_item =
-    Field of svar
-  | TField of sexpr * sexpr option * sexpr option
-  | TExpr of expr
+    SField of svar
+  | STField of sexpr * sexpr option * sexpr option
+  | STExpr of sexpr
 
 type sprogram_decl =
     SFunc of string * type_ * sparam list * sblock_item list
   | STemplate of string * sparam list * stemplate_item list
   | SGVar of svar (* global variable *)
 
-
 type sprogram = SProgram of sprogram_decl list
 
 (* Pretty-printing *)
 
-let string_of_sprogram = function _ -> ""
+let rec string_of_stblock_item = function
+    SField(v) -> (string_of_svar v) ^ ";"
+  | STField(e1, e2, e3) ->
+        let e1 = (string_of_sexpr e1) in
+        let e2 = (match e2 with Some e -> (string_of_sexpr e) | None -> "") in
+        let e3 = (match e3 with Some e -> (string_of_sexpr e) | None -> "") in
+        "STField(id=" ^ e1 ^ ", type=" ^ e2 ^ ", value=" ^ e3 ^ ");"
+  | STExpr(e) -> (string_of_sexpr e) ^ ";"
 
-(*let string_of_sprogram = function
-    SProgram(pdecls, block) -> string_of_program (Program(pdecls, block))*)
+and string_of_stblock b =
+    "{\n" ^ (String.concat "\n" (List.map string_of_stblock_item b))
+
+and string_of_sblock_item = function
+    SLVar(v) -> (string_of_svar v) ^ ";"
+  | SExpr(e) -> (string_of_sexpr e) ^ ";"
+  | SReturn(e) -> "SReturn(" ^ (string_of_sexpr e) ^ ");"
+
+and string_of_sblock b =
+    "{\n" ^ (String.concat "\n" (List.map string_of_sblock_item b)) ^ "}"
+
+and string_of_sarm arm =
+    let (e, block) = arm in
+    (string_of_sexpr e) ^ " -> " ^ (string_of_sblock block)
+
+and string_of_scond cond =
+    match cond with
+    (Some e, b) -> "SElseIf(" ^ (string_of_sexpr e) ^ ") "
+                   ^ (string_of_sblock b)
+  | (None, b) -> "SElse " ^ (string_of_sblock b)
+
+and string_of_sx = function
+    SLInt i -> string_of_int i
+  | SLFloat f -> string_of_float f
+  | SLString s -> "\"" ^ s ^ "\""
+  | SLArray lx -> "[" ^ (String.concat "," (List.map string_of_sexpr lx)) ^ "]"
+  | SId id -> id
+  | SEType t -> "SEType(" ^ (string_of_ptype t) ^ ")"
+  | SBinop(e1,op,e2) ->
+          "(" ^ (string_of_op op)
+          ^ " " ^ (string_of_sexpr e1)
+          ^ " " ^ (string_of_sexpr e2) ^ ")"
+  | SUnop(uop,e) ->
+          "(" ^ (string_of_uop uop) ^ " " ^ (string_of_sexpr e) ^ ")"
+  | SMatch(e,arms) ->
+          "SMatch(" ^ (string_of_sexpr e) ^ ") {\n"
+          ^ (String.concat "\n" (List.map (string_of_sarm) arms)) ^ "\n}"
+  | SCond(conds) -> (match conds with
+        (e,b)::tl -> (match e with
+            Some e -> "SIf(" ^ (string_of_sexpr e) ^ ")"
+                      ^ (string_of_sblock b) ^ "\n"
+                      ^ (String.concat "\n" (List.map (string_of_scond) tl))
+          | None -> raise (Failure "malformed conditional"))
+      | _ -> raise (Failure "malformed conditional")
+  )
+  | SFor(ids, e, b) ->
+          "SFor( (" ^ (String.concat "," ids) ^ ") in " ^ (string_of_sexpr e)
+          ^ string_of_sblock b
+  | SWhile(e, b) ->
+          "SWhile(" ^ (string_of_sexpr e) ^ ")" ^ string_of_sblock b
+  | SCall(id,el) ->
+          "SCall(" ^ id ^ ", params=["
+          ^ (String.concat ", " (List.map string_of_sexpr el)) ^ "])"
+  | STCall(ptype,el) ->
+          "STCall(" ^ (string_of_ptype ptype) ^ ", params=["
+          ^ (String.concat ", " (List.map string_of_sexpr el)) ^ "])"
+
+and string_of_sexpr e =
+    let (type_, sx) = e in
+    "(# " ^ string_of_type type_ ^ " $ " ^ string_of_sx sx ^ " #)"
+
+and string_of_svar v =
+    let SVar(hidden, id, type_, value) = v in
+    "SVar(" ^ (if hidden then "@" else "") ^ id ^ ":" ^ (string_of_type type_)
+    ^ ", value="
+    ^ (match value with Some e -> string_of_sexpr e | None -> "") ^ ")"
+
+let string_of_sparam p =
+    let SParam(id, type_) = p in
+    id ^ ":" ^ string_of_type type_
+
+let string_of_spdecl = function
+    SFunc(id, type_, params, body) ->
+        "SFunc(" ^ id ^ ":" ^ (string_of_type type_)
+        ^ ", params=[" ^ (String.concat ", " (List.map string_of_sparam params))
+        ^ "])\n" ^ (string_of_sblock body)
+  | STemplate(id, params, body) ->
+        "STemplate(" ^ id
+        ^ ", params=[" ^ (String.concat ", " (List.map string_of_sparam params))
+        ^ "])\n" ^ (string_of_stblock body)
+  | SGVar(v) ->
+        "SGVar(" ^ (string_of_svar v) ^ ")"
+
+let string_of_sprogram prog =
+    let SProgram(pdecls) = prog in
+    String.concat "\n" (List.map string_of_spdecl pdecls)
+    ^ "\n"
+
