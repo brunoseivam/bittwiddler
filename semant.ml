@@ -48,11 +48,11 @@ let check_emit_fmt ctx emit_fmt =
       | (VAR id)::tl -> (match find_elem ctx.variables id with
             SVar(_,id,ScalarType pt,_) ->
                 let tfmt = (match pt with
-                    TInt("u",8,_) | TInt("u",16,_) | TInt("u",32,_) -> "%u"
-                  | TAInt | TInt("",8,_) | TInt("",16,_) | TInt("",32,_) -> "%d"
-                  | TInt("u",64,_) -> "%lu"
-                  | TInt("",64,_) -> "%ld"
-                  | TAFloat | TFloat(32) | TFloat(64) -> "%f"
+                    TInt(true,64) -> "%lu"
+                  | TInt(false,64) -> "%ld"
+                  | TInt(true,_) -> "%u"
+                  | TAInt | TInt(false,_) -> "%d"
+                  | TAFloat | TFloat(_) -> "%f"
                   | TString -> "%s"
                   | _ -> emit_err id (ScalarType pt)
                 ) in
@@ -75,8 +75,8 @@ let check_type_compat t1 t2 =
     ) in
 
     let upcast t1 t2 = match (t1,t2) with
-        (TInt(_,_,_), TAInt) -> (t1, t1)
-      | (TAInt, TInt(_,_,_)) -> (t2, t2)
+        (TInt(_,_), TAInt) -> (t1, t1)
+      | (TAInt, TInt(_,_)) -> (t2, t2)
       | (TFloat(_), TAFloat) -> (t1, t1)
       | (TAFloat, TFloat(_)) -> (t2, t2)
       | (_, _) when t1 = t2 -> (t1, t2)
@@ -97,7 +97,7 @@ let is_array = function
   | _ -> false
 
 let is_integer = function
-    ScalarType(TInt(_,_,_)) | ScalarType(TAInt) -> true
+    ScalarType(TInt(_,_)) | ScalarType(TAInt) -> true
   | _ -> false
 
 let is_float = function
@@ -287,7 +287,7 @@ let check prog =
     (* Add built-in functions and main to list of program declarations *)
     let built_in_funcs = [
         Func("emit", ScalarType(TNone), [], []);
-        Func("main", ScalarType(TInt("",32,"")), [], main @ [Return(LInt(0))])
+        Func("main", ScalarType(TInt(false,32)), [], main @ [Return(LInt(0))])
     ] in
     let pdecls = built_in_funcs @ pdecls in
 

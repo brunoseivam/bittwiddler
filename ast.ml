@@ -7,7 +7,7 @@ type op =
 type uop = BwNot | Not | Neg
 
 type ptype =
-  | TInt of (string * int * string)
+  | TInt of (bool * int)
   | TFloat of int
   | TString
   | TId of string * (expr list) option
@@ -47,7 +47,7 @@ and type_ =
 and param =
     Param of string * type_
 
-let boolean = ScalarType(TInt("uint", 8, ""))
+let boolean = ScalarType(TInt(true, 8))
 
 type template_item =
     Field of var
@@ -79,7 +79,7 @@ let rec string_of_targs = function
       | None -> ""
 
 and string_of_ptype = function
-    TInt(u, w, e) -> u ^ "int" ^ string_of_int w ^ e
+    TInt(u, w) -> (if u then "uint" else "int") ^ string_of_int w
   | TFloat(w) -> "float" ^ string_of_int w
   | TId(id, args) -> id ^ string_of_targs args
   | TString -> "string"

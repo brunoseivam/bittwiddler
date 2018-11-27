@@ -1,9 +1,8 @@
 { open Parser }
 
-(* integer unsignedness, width and endianess *)
+(* integer unsignedness and width *)
 let int_uns  = 'u'?
 let int_wid  = '8'|"16"|"32"|"64"
-let int_end  = ("le"|"be")?
 
 (* float width *)
 let float_wid = "32"|"64"
@@ -67,8 +66,8 @@ rule token = parse
     | "==" { EQ } | "!=" { NEQ  }
 
     (* Builtin Types *)
-    | (int_uns as u) "int" (int_wid as w) (int_end as e)
-      { INT_T(u, int_of_string w, e) }
+    | (int_uns as u) "int" (int_wid as w)
+      { INT_T(u=="u", int_of_string w) }
 
     | "float"(float_wid as w) { FLOAT_T(int_of_string w) }
     | "string"  { STRING_T }

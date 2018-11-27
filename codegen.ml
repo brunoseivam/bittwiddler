@@ -26,7 +26,7 @@ let translate prog =
     let ltype_of_type = function
         A.ScalarType(t) -> (match t with
             A.TAInt -> i32_t
-          | A.TInt(_,w,_) -> L.integer_type context w
+          | A.TInt(_,w) -> L.integer_type context w
           | A.TFloat(32) -> f32_t
           | A.TAFloat | A.TFloat(64) -> f64_t
           | A.TNone -> void_t
@@ -37,7 +37,7 @@ let translate prog =
 
     let ret_of_type t = match t with
         A.ScalarType pt -> (match pt with
-            A.TAInt | A.TInt(_,_,_) ->
+            A.TAInt | A.TInt(_,_) ->
                 L.build_ret (L.const_int (ltype_of_type t) 0)
           | A.TAFloat | A.TFloat(_) ->
                 L.build_ret (L.const_float (ltype_of_type t) 0.0)
@@ -74,9 +74,8 @@ let translate prog =
           | (A.ScalarType t, SBinop (e1, op, e2)) -> (match t with
                 A.TAInt -> raise (Failure "internal error: got abstract int")
               | A.TAFloat -> raise (Failure "internal error: got abstract float")
-              | A.TInt(u,_,_) ->
-                    let u = u="u"
-                    and e1' = expr builder e1
+              | A.TInt(u,_) ->
+                    let e1' = expr builder e1
                     and e2' = expr builder e2 in
                     (match op with
                       A.Plus    -> L.build_add
