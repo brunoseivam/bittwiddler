@@ -19,8 +19,8 @@ let add_to_map map id elem kind =
             raise (Failure ("duplicate " ^ kind ^ " declaration: " ^ id))
       | _ -> StringMap.add id elem map
 
-let add_var map v = match v with
-    SVar(_,id,_,_) -> add_to_map map id v "variable"
+let add_var map = function
+    (_,id,_,_) as v -> add_to_map map id v "variable"
 
 let add_func map f = match f with
     SFunc(id,_,_,_) -> add_to_map map id f "function"
@@ -46,7 +46,7 @@ let check_emit_fmt ctx emit_fmt =
         [] -> (fmt, args)
       | (STR s)::tl -> build_args (fmt ^ s) args tl
       | (VAR id)::tl -> (match find_elem ctx.variables id with
-            SVar(_,id,ScalarType pt,_) ->
+            (_,id,ScalarType pt,_) ->
                 let tfmt = (match pt with
                     TInt(true,64) -> "%lu"
                   | TInt(false,64) -> "%ld"
@@ -57,7 +57,7 @@ let check_emit_fmt ctx emit_fmt =
                   | _ -> emit_err id (ScalarType pt)
                 ) in
                 build_args (fmt ^ tfmt) ((ScalarType pt, SId id)::args) tl
-          | SVar(_,id,t,_) -> emit_err id t
+          | (_,id,t,_) -> emit_err id t
         )
     in
 
@@ -127,7 +127,7 @@ let rec check_expr ctx e = match e with
             (ArrayType(type_of_arr_lit sel, Some(LInt(List.length sel))),
             SLArray sel)
   | Id s ->
-        let SVar(_,_,type_,_) = find_elem ctx.variables s in (type_, SId s)
+        let (_,_,type_,_) = find_elem ctx.variables s in (type_, SId s)
   | EType t -> (ScalarType TType , SEType t)
   | Binop(e1,op,e2) ->
         let failure t1 t2 = Failure (
@@ -203,7 +203,7 @@ let check_var ctx v =
       | (None, None) ->
             raise (Failure ("")) (*TODO: meaningful error *)
     in
-    let sv = SVar(hidden, id, t, Some e) in
+    let sv = (hidden, id, t, Some e) in
     ({ ctx with variables = add_var ctx.variables sv }, sv)
 
 (* Returns a new context and a semantically checked block item *)
@@ -234,7 +234,7 @@ let check_dup kind where names =
 let rec add_params ctx params = match params with
     [] -> ctx
   | Param(id, type_)::tl ->
-        let sv = SVar(false, id, type_, None) in
+        let sv = (false, id, type_, None) in
         let ctx = { ctx with variables = add_var ctx.variables sv } in
         add_params ctx tl
 
@@ -251,7 +251,7 @@ let check_params ctx params where =
     ) params in
 
     (add_params ctx params,
-    List.map (function Param(id, type_) -> SParam(id, type_)) params)
+    List.map (function Param(id, type_) -> (id, type_)) params)
 
 (* Check global program declarations: Global variable, function and template.
  * Returns a modified context and a semantically checked program declaration.
@@ -298,4 +298,4 @@ let check prog =
         templates = StringMap.empty;
     } in
 
-    SProgram(List.rev (check_pdecls ctx pdecls))
+    List.rev (check_pdecls ctx pdecls)

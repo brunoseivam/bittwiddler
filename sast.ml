@@ -25,23 +25,24 @@ and sblock_item =
   | SExpr of sexpr
   | SReturn of sexpr
 
-and svar =
-    SVar of bool * string * type_ * sexpr option
+and svar = bool * string * type_ * sexpr option
 
-type sparam =
-    SParam of string * type_
+type sparam = string * type_
 
 type stemplate_item =
     SField of svar
   | STField of sexpr * sexpr option * sexpr option
   | STExpr of sexpr
 
+type sfunc = string * type_ * sparam list * sblock_item list
+type stempl = string * sparam list * stemplate_item list
+
 type sprogram_decl =
-    SFunc of string * type_ * sparam list * sblock_item list
-  | STemplate of string * sparam list * stemplate_item list
+    SFunc of sfunc
+  | STemplate of stempl
   | SGVar of svar (* global variable *)
 
-type sprogram = SProgram of sprogram_decl list
+type sprogram = sprogram_decl list
 
 (* Pretty-printing *)
 
@@ -116,13 +117,14 @@ and string_of_sexpr e =
     "(# " ^ string_of_type type_ ^ " $ " ^ string_of_sx sx ^ " #)"
 
 and string_of_svar v =
-    let SVar(hidden, id, type_, value) = v in
-    "SVar(" ^ (if hidden then "@" else "") ^ id ^ ":" ^ (string_of_type type_)
-    ^ ", value="
-    ^ (match value with Some e -> string_of_sexpr e | None -> "") ^ ")"
+    let (hidden, id, type_, value) = v in
+    "(" ^ (if hidden then "@" else "") ^ id ^ ":" ^ (string_of_type type_)
+    ^ ", value=" ^
+    (match value with Some e -> (string_of_sexpr e) | None -> "")
+    ^  ")"
 
 let string_of_sparam p =
-    let SParam(id, type_) = p in
+    let (id, type_) = p in
     id ^ ":" ^ string_of_type type_
 
 let string_of_spdecl = function
@@ -138,7 +140,6 @@ let string_of_spdecl = function
         "SGVar(" ^ (string_of_svar v) ^ ")"
 
 let string_of_sprogram prog =
-    let SProgram(pdecls) = prog in
-    String.concat "\n" (List.map string_of_spdecl pdecls)
+    String.concat "\n" (List.map string_of_spdecl prog)
     ^ "\n"
 
