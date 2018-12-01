@@ -6,11 +6,56 @@ open Sast
 
 module StringMap = Map.Make(String)
 
+(* TODO: maybe we only need to store llvalues here *)
 type ctx = {
-    gvars : (L.llvalue * svar) StringMap.t;
-    funcs : (L.llvalue * sfunc) StringMap.t;
-    templs : (L.llvalue * stempl) StringMap.t;
+    vars : (L.llvalue * svar) StringMap.t list;     (* stack of vars *)
+    funcs : (L.llvalue * sfunc) StringMap.t;        (* functions *)
+    templs : (L.llvalue * stempl) StringMap.t;      (* templates *)
+    cur_func : L.llvalue option;                    (* current function *)
 }
+
+let string_of_ctx name ctx =
+    let string_of_var k (lv,_) =
+        "var " ^ k ^ ": " ^ (L.string_of_llvalue lv)
+    and string_of_func k (lv,_) =
+        "func " ^ k ^ ": " ^ (L.string_of_llvalue lv)
+    in
+
+    let string_of_vars m i =
+        StringMap.fold (fun k v r -> i^(string_of_var k v)^"\n"^r) m ""
+    and string_of_funcs m i =
+        StringMap.fold (fun k v r -> i^(string_of_func k v)^"\n"^r) m ""
+    in
+
+    let string_of_stack l i =
+        List.fold_left
+            (fun r v -> i ^ "[" ^ (string_of_vars v i) ^ "]\n" ^ r)
+        "" l
+    in
+
+      name ^ " ctx {\n"
+    ^ "  vars: {\n" ^ (string_of_stack ctx.vars "    ") ^ "  }\n"
+    ^ "  funcs: {\n" ^ (string_of_funcs ctx.funcs "  ") ^ "  }\n"
+    ^ "}"
+
+(* Lookup a var in a chain of StringMaps *)
+let rec chain_lookup k = function
+    [] -> raise Not_found
+  | m::tl -> try StringMap.find k m with Not_found -> chain_lookup k tl
+
+let lookup_var k ctx =
+    try chain_lookup k ctx.vars
+    with Not_found -> raise (Failure ("variable " ^ k ^ " not found"))
+
+(* Adds a var to the top var map of the context ctx *)
+let add_var ctx (id:string) (lv:L.llvalue) (sv:svar) =
+    match ctx.vars with
+        [] -> raise (Failure "internal error: add_var on non-existent map")
+      | hd::tl ->
+            let ctx = { ctx with vars = (StringMap.add id (lv, sv) hd)::tl } in
+            ctx
+
+
 
 let translate prog =
     let context = L.global_context () in
@@ -40,6 +85,14 @@ let translate prog =
       | _ as t -> raise (Failure ("type not implemented " ^ A.string_of_type t))
     in
 
+    (* Create an alloca instruction in the entry block of the function *)
+    let create_entry_block_alloca the_function id type_ =
+        let builder = L.builder_at context (
+            L.instr_begin (L.entry_block the_function)
+        ) in
+        L.build_alloca (ltype_of_type type_) id builder
+    in
+
     (* Built-ins *)
     let printf_t : L.lltype =
         L.var_arg_function_type i32_t [| L.pointer_type i8_t |]
@@ -50,21 +103,34 @@ let translate prog =
     in
 
     (* Expression builder *)
-    let rec build_expr builder = function
+    let rec build_expr ctx builder = function
         (t, SLInt i) ->
             L.const_int (ltype_of_type t) i
       | (t, SLFloat f) ->
             L.const_float (ltype_of_type t) f
-      | (_, SLString(s)) ->
+      | (_, SLString s) ->
             L.build_global_stringptr s "" builder
+      | (_, SLArray _) ->
+            raise (Failure "arrays not implemented yet")
+      | (A.ScalarType _, SId id) ->
+            let (v, _) = lookup_var id ctx in
+            L.build_load v id builder
+      | (_, SId _) ->
+            raise (Failure "arrays not implemented yet")
+
+        (* Assignment *)
+      | (A.ScalarType _, SBinop ((_, SId id), A.Assign, e)) ->
+            let e' = build_expr ctx builder e in
+            let (v,_) = lookup_var id ctx in
+            ignore(L.build_store e' v builder); e'
 
         (* Binary operation returning scalar *)
       | (A.ScalarType t, SBinop (e1, op, e2)) -> (match t with
             A.TAInt -> raise (Failure "internal error: got abstract int")
           | A.TAFloat -> raise (Failure "internal error: got abstract float")
           | A.TInt(u,_) ->
-                let e1' = build_expr builder e1
-                and e2' = build_expr builder e2 in
+                let e1' = build_expr ctx builder e1
+                and e2' = build_expr ctx builder e2 in
                 (match op with
                   A.Plus    -> L.build_add
                 | A.Minus   -> L.build_sub
@@ -86,8 +152,8 @@ let translate prog =
                                        ^ " not implemented for integers"))
                 ) e1' e2' "tmp" builder
           | A.TFloat(_) ->
-                let e1' = build_expr builder e1
-                and e2' = build_expr builder e2 in
+                let e1' = build_expr ctx builder e1
+                and e2' = build_expr ctx builder e2 in
                 (match op with
                   A.Plus    -> L.build_fadd
                 | A.Minus   -> L.build_fsub
@@ -111,19 +177,40 @@ let translate prog =
       | (_, SCall("emit", args)) ->
             L.build_call
                 printf_func
-                (Array.of_list (List.map (build_expr builder) args))
+                (Array.of_list (List.map (build_expr ctx builder) args))
                 "printf"
                 builder
       | _ as e -> raise (Failure ("expr not implemented: " ^ string_of_sexpr e))
-    in
 
     (*
      * Build an sblock_item
      *)
-    let build_block_item builder = function
-        SLVar(_) -> raise (Failure "local var not implemented yet")
-      | SExpr(e) -> ignore(build_expr builder e); builder
-      | SReturn(e) -> ignore(build_expr builder e); builder
+    and build_block_item ctx builder = function
+        SLVar(_, id, type_, Some e as v) ->
+            (match ctx.cur_func with
+                (* Allocate var on the stack and add it to the context *)
+                Some f ->
+                    let lv = create_entry_block_alloca f id type_ in
+                    let ctx = add_var ctx id lv v in
+                    let e' = build_expr ctx builder e in
+                    ignore(L.build_store e' lv builder); (ctx, builder)
+              | None ->
+                    raise (Failure "internal error: local var without function")
+            )
+      | SExpr(e) -> ignore(build_expr ctx builder e); (ctx, builder)
+      | SReturn(e) -> ignore(build_expr ctx builder e); (ctx, builder)
+      | _ as i -> raise (Failure ("can't build block item "
+                                  ^ (string_of_sblock_item i)))
+
+    (*
+     * Build a block
+     *)
+    and build_block ctx builder = function
+        [] ->
+            builder
+      | hd::tl ->
+            let (ctx, builder) = build_block_item ctx builder hd in
+            build_block ctx builder tl
     in
 
     (*
@@ -160,7 +247,7 @@ let translate prog =
                                  ^ "not implemented"))
         in
         let the_var = L.define_global id init the_module in
-        { ctx with gvars = StringMap.add id (the_var, v) ctx.gvars }
+        add_var ctx id the_var v
     in
 
     (* Build a function *)
@@ -171,14 +258,44 @@ let translate prog =
         let the_function = L.define_function id ftype the_module in
         let builder = L.builder_at_end context (L.entry_block the_function) in
 
+        (* Add a parameter to the stack *)
+        let add_param ctx id type_ =
+            let sv = (false, id, type_, None) in
+            let lv = create_entry_block_alloca the_function id type_ in
+            add_var ctx id lv sv
+        in
+
+        let rec add_params ctx = function
+            [] -> ctx
+          | (id,type_)::tl ->
+                let ctx = add_param ctx id type_ in
+                add_params ctx tl
+        in
+
         let add_terminal builder instr =
             match L.block_terminator (L.insertion_block builder) with
                 Some _ -> ()
               | None   -> ignore (instr builder)
         in
 
-        let builder = List.fold_left build_block_item builder body in
+        (* Allocate parameters on the stack and assign passed in values *)
+        let lctx = add_params ctx params in
+        let _ = List.iter2
+            (fun (id,_) value ->
+                ignore(L.build_store value (fst (lookup_var id lctx)) builder))
+            params
+            (Array.to_list (L.params the_function))
+        in
+
+        (* Build the body of the function *)
+        let lctx = { ctx with
+            cur_func = Some the_function;
+            vars = StringMap.empty::ctx.vars;
+        } in
+        let builder = build_block lctx builder body in
         let _ = add_terminal builder (ret_of_type type_) in
+
+        (* Returns a context with this function added to it *)
         { ctx with funcs = StringMap.add id (the_function, f) ctx.funcs }
     in
 
@@ -197,16 +314,16 @@ let translate prog =
     (* Build all program declarations *)
     let rec build_pdecls ctx = function
         [] -> ()
-      | hd::tl -> let ctx = build_pdecl ctx hd in build_pdecls ctx tl
+      | hd::tl ->
+            let ctx = build_pdecl ctx hd in
+            build_pdecls ctx tl
     in
 
     let global_ctx = {
-        (*gvars : (L.llvalue * svar) StringMap.t = StringMap.empty;
-        funcs : (L.llvalue * sfunc) StringMap.t = StringMap.empty;
-        templs : (L.llvalue * stempl) StringMap.t = StringMap.empty;*)
-        gvars = StringMap.empty;
+        vars = [StringMap.empty];
         funcs = StringMap.empty;
         templs = StringMap.empty;
+        cur_func = None;
     } in
 
     build_pdecls global_ctx prog;

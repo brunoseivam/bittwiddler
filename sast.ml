@@ -64,7 +64,7 @@ and string_of_sblock_item = function
   | SReturn(e) -> "SReturn(" ^ (string_of_sexpr e) ^ ");"
 
 and string_of_sblock b =
-    "{\n" ^ (String.concat "\n" (List.map string_of_sblock_item b)) ^ "}"
+    "{\n" ^ (String.concat "\n" (List.rev (List.map string_of_sblock_item b))) ^ "}"
 
 and string_of_sarm arm =
     let (e, block) = arm in

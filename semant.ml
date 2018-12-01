@@ -8,9 +8,20 @@ module StringMap = Map.Make(String)
 
 type context = {
     variables : svar StringMap.t;
-    functions : sprogram_decl StringMap.t;
-    templates : sprogram_decl StringMap.t;
+    functions : sfunc StringMap.t;
+    templates : stempl StringMap.t;
 }
+
+let string_of_ctx ctx =
+    let string_of_sfunc (f:sfunc) = string_of_spdecl (SFunc f) in
+    let string_of_stempl (t:stempl) = string_of_spdecl (STemplate t) in
+
+    let fold f m = StringMap.fold (fun k v r -> k^":"^(f  v)^"\n"^r) m "" in
+
+    "context\n\n"
+    ^ "variables\n---------\n\n" ^ (fold (string_of_svar) ctx.variables)
+    ^ "functions\n---------\n\n" ^ (fold (string_of_sfunc) ctx.functions)
+    ^ "templates\n---------\n\n" ^ (fold (string_of_stempl) ctx.templates)
 
 (* Helper functions to add elements to maps *)
 let add_to_map map id elem kind =
@@ -22,13 +33,11 @@ let add_to_map map id elem kind =
 let add_var map = function
     (_,id,_,_) as v -> add_to_map map id v "variable"
 
-let add_func map f = match f with
-    SFunc(id,_,_,_) -> add_to_map map id f "function"
-  | _ -> map
+let add_func map = function
+    (id,_,_,_) as f -> add_to_map map id f "function"
 
-let add_templ map t = match t with
-    STemplate(id,_,_) -> add_to_map map id t "template"
-  | _ -> map
+let add_templ map = function
+    (id,_,_) as t -> add_to_map map id t "template"
 
 let find_elem map id =
     try StringMap.find id map
@@ -182,7 +191,9 @@ let rec check_expr ctx e = match e with
                 (ScalarType TNone, SCall("emit", check_emit_fmt ctx s))
           | _ -> raise (Failure ("emit requires a single literal "
                                  ^ "string argument")))
-        | Call(id, el) -> (ScalarType TNone, SCall(id, List.map (check_expr ctx) el))
+        | Call(id, el) ->
+            let (_,type_,_,_) = find_elem ctx.functions id in
+            (type_, SCall(id, List.map (check_expr ctx) el))
         | _ -> raise (Failure ("Not implemented: " ^ string_of_expr e))
 
 let check_var ctx v =
@@ -207,12 +218,12 @@ let check_var ctx v =
     ({ ctx with variables = add_var ctx.variables sv }, sv)
 
 (* Returns a new context and a semantically checked block item *)
-let check_block_item ctx bitem = match bitem with
+let check_block_item ctx = function
     LVar(v) -> let (ctx, sv) = check_var ctx v in (ctx, SLVar(sv))
   | Expr(e) -> (ctx, SExpr(check_expr ctx e))
   | Return(e) -> (ctx, SReturn(check_expr ctx e))
 
-let rec check_block ctx block = match block with
+let rec check_block ctx = function
     [] -> []
   | hd::tl ->
         let (ctx, item) = check_block_item ctx hd in
@@ -256,11 +267,11 @@ let check_params ctx params where =
 (* Check global program declarations: Global variable, function and template.
  * Returns a modified context and a semantically checked program declaration.
  *)
-let check_pdecl ctx decl = match decl with
+let check_pdecl ctx = function
     Func(id, type_, params, body) ->
         let (lctx, sp) = check_params ctx params id in
-        let sf = SFunc(id, type_, sp, List.rev (check_block lctx body)) in
-        ({ ctx with functions = add_func ctx.functions sf }, sf)
+        let sf = (id, type_, sp, check_block lctx body) in
+        ({ ctx with functions = add_func ctx.functions sf }, SFunc sf)
   | Template(_, _, _) ->
         raise (Failure ("Not implemented")) (* TODO
         let st = STemplate(id, check_params params, check_tblock ctx body) in
@@ -271,7 +282,7 @@ let check_pdecl ctx decl = match decl with
         let (ctx, sv) = check_var ctx v in
         (ctx, SGVar(sv))
 
-let rec check_pdecls ctx pdecls = match pdecls with
+let rec check_pdecls ctx = function
     [] -> []
   | hd::tl -> let (ctx, d) = check_pdecl ctx hd in d::(check_pdecls ctx tl)
 
@@ -287,9 +298,12 @@ let check prog =
     (* Add built-in functions and main to list of program declarations *)
     let built_in_funcs = [
         Func("emit", ScalarType(TNone), [], []);
+    ]
+    and main_func =
         Func("main", ScalarType(TInt(false,32)), [], main @ [Return(LInt(0))])
-    ] in
-    let pdecls = built_in_funcs @ pdecls in
+    in
+
+    let pdecls = built_in_funcs @ pdecls @ [main_func] in
 
     (* Build global maps *)
     let ctx = {
