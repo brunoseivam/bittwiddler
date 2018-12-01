@@ -1,9 +1,9 @@
 .PHONY: all test clean
 
+all: bittwiddler.native
+
 test: all testall.sh
 	./testall.sh
-
-all: bittwiddler.native
 
 bittwiddler.native:
 	opam config exec -- \
@@ -11,4 +11,4 @@ bittwiddler.native:
 
 clean:
 	ocamlbuild -clean
-	-rm -f *diff *.ll testall.log
+	-rm -f *diff *.ll *.err *.s testall.log
