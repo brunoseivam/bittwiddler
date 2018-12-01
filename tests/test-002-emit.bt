@@ -1,0 +1,6 @@
+main {
+    var a : int32 = 1;
+    var b : int32 = 2;
+    var c : int32 = 3;
+    emit("{a} + {b} = {c}");
+}
