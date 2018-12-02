@@ -200,6 +200,21 @@ let translate prog =
                                   ^ " not implemented for type "
                                   ^ A.string_of_ptype t))
         )
+        (* Unary operation on integer *)
+      | (A.ScalarType (A.TInt _), SUnop (op, e)) ->
+            let e' = build_expr ctx builder e in
+            (match op with
+                A.BwNot -> L.build_not e' "tmp" builder
+              | A.Not ->
+                    let n = L.build_not e' "tmp" builder in
+                    let b = build_is_nonzero n builder in
+                    build_cast_bool b builder
+              | A.Neg -> L.build_neg e' "tmp" builder)
+
+        (* Unary operation on float *)
+      | (A.ScalarType (A.TFloat _), SUnop (A.Neg, e)) ->
+            L.build_fneg (build_expr ctx builder e) "tmp" builder
+
       | (_, SCall("emit", args)) ->
             L.build_call
                 printf_func

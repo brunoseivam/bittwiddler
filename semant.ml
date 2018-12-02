@@ -184,17 +184,32 @@ let rec check_expr ctx e = match e with
         in
         (ty, SBinop((t1',e1'), op, (t2',e2')))
 
-        (* When 'emit' is called, we have to build its arguments from the
-         * format string *)
-        | Call("emit", el) -> (match el with
+  | Unop(uop, e) ->
+        let (t, e') = check_expr ctx e in
+        let ty = match (t, uop) with
+            (ScalarType (TInt _), Not) -> boolean
+          | (ScalarType (TInt _), BwNot)
+          | (ScalarType (TInt _), Neg)
+          | (ScalarType (TFloat _), Neg) -> t
+          | _ -> raise (Failure ("Operator " ^ (string_of_uop uop)
+                                 ^ " not defined for type "
+                                 ^ (string_of_type t)))
+        in
+        (ty, SUnop(uop, (t, e')))
+
+  (* When 'emit' is called, we have to build its arguments from the format
+   * string *)
+  | Call("emit", el) -> (match el with
             [(LString s)] ->
                 (ScalarType TNone, SCall("emit", check_emit_fmt ctx s))
           | _ -> raise (Failure ("emit requires a single literal "
                                  ^ "string argument")))
-        | Call(id, el) ->
-            let (_,type_,_,_) = find_elem ctx.functions id in
-            (type_, SCall(id, List.map (check_expr ctx) el))
-        | _ -> raise (Failure ("Not implemented: " ^ string_of_expr e))
+
+  | Call(id, el) ->
+        let (_,type_,_,_) = find_elem ctx.functions id in
+        (type_, SCall(id, List.map (check_expr ctx) el))
+
+  | _ -> raise (Failure ("Not implemented: " ^ string_of_expr e))
 
 let check_var ctx v =
     let Var(hidden, id, t, e) = v in
