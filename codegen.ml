@@ -135,52 +135,51 @@ let translate prog =
             let (v,_) = lookup_var id ctx in
             ignore(L.build_store e' v builder); e'
 
-        (* Binary operation returning scalar *)
-      | (A.ScalarType t, SBinop (e1, op, e2)) -> (match t with
-            A.TAInt -> raise (Failure "internal error: got abstract int")
-          | A.TAFloat -> raise (Failure "internal error: got abstract float")
-          | A.TInt(u,_) ->
-                let e1' = build_expr ctx builder e1
-                and e2' = build_expr ctx builder e2 in
-                let r = (match op with
-                  A.Plus    -> L.build_add
-                | A.Minus   -> L.build_sub
-                | A.Times   -> L.build_mul
-                | A.Div     -> if u then L.build_udiv else L.build_sdiv
-                | A.Rem     -> if u then L.build_urem else L.build_srem
-                | A.LShift  -> L.build_shl
-                | A.RShift  -> if u then L.build_lshr else L.build_ashr
-                | A.BwOr  | A.Or  -> L.build_or
-                | A.BwAnd | A.And -> L.build_and
-                | A.Lt      -> L.build_icmp (if u then L.Icmp.Ult else L.Icmp.Slt)
-                | A.LtEq    -> L.build_icmp (if u then L.Icmp.Ule else L.Icmp.Sle)
-                | A.Eq      -> L.build_icmp L.Icmp.Eq
-                | A.NEq     -> L.build_icmp L.Icmp.Ne
-                | A.GtEq    -> L.build_icmp (if u then L.Icmp.Uge else L.Icmp.Sge)
-                | A.Gt      -> L.build_icmp (if u then L.Icmp.Ugt else L.Icmp.Sgt)
-                | _ -> raise (Failure ("internal error: operation "
+        (* Binary operation on integers *)
+      | (_, SBinop ((A.ScalarType A.TInt (u,_),_) as e1, op, e2)) ->
+            let e1' = build_expr ctx builder e1
+            and e2' = build_expr ctx builder e2 in
+            let r = (match op with
+                A.Plus    -> L.build_add
+              | A.Minus   -> L.build_sub
+              | A.Times   -> L.build_mul
+              | A.Div     -> if u then L.build_udiv else L.build_sdiv
+              | A.Rem     -> if u then L.build_urem else L.build_srem
+              | A.LShift  -> L.build_shl
+              | A.RShift  -> if u then L.build_lshr else L.build_ashr
+              | A.BwOr  | A.Or  -> L.build_or
+              | A.BwAnd | A.And -> L.build_and
+              | A.Lt      -> L.build_icmp (if u then L.Icmp.Ult else L.Icmp.Slt)
+              | A.LtEq    -> L.build_icmp (if u then L.Icmp.Ule else L.Icmp.Sle)
+              | A.Eq      -> L.build_icmp L.Icmp.Eq
+              | A.NEq     -> L.build_icmp L.Icmp.Ne
+              | A.GtEq    -> L.build_icmp (if u then L.Icmp.Uge else L.Icmp.Sge)
+              | A.Gt      -> L.build_icmp (if u then L.Icmp.Ugt else L.Icmp.Sgt)
+              | _ -> raise (Failure ("internal error: operation "
                                        ^ A.string_of_op op
                                        ^ " not implemented for integers"))
-                ) e1' e2' "tmp" builder in
+            ) e1' e2' "tmp" builder in
 
-                (* Boolean operations can return:
-                 *   - and/or: the type of the operands
-                 *   - comparison: i1
-                 * But we must ensure that it returns BitTwiddler's definition
-                 * of a boolean, uint8.
-                 *)
-                (match op with
-                    A.And | A.Or ->
-                        let b = build_is_nonzero r builder in
-                        build_cast_bool b builder
-                  | A.Lt | A.LtEq | A.Eq | A.NEq | A.GtEq | A.Gt ->
-                        build_cast_bool r builder
-                  | _ -> r
-                )
-          | A.TFloat(_) ->
-                let e1' = build_expr ctx builder e1
-                and e2' = build_expr ctx builder e2 in
-                (match op with
+            (* Boolean operations can return:
+             *   - and/or: the type of the operands
+             *   - comparison: i1
+             * But we must ensure that it returns BitTwiddler's definition
+             * of a boolean, uint8.
+             *)
+            (match op with
+                A.And | A.Or ->
+                    let b = build_is_nonzero r builder in
+                    build_cast_bool b builder
+              | A.Lt | A.LtEq | A.Eq | A.NEq | A.GtEq | A.Gt ->
+                    build_cast_bool r builder
+              | _ -> r
+            )
+
+        (* Binary operation on floats *)
+      | (_, SBinop ((A.ScalarType A.TFloat _, _) as e1, op, e2)) ->
+            let e1' = build_expr ctx builder e1
+            and e2' = build_expr ctx builder e2 in
+            let r = (match op with
                   A.Plus    -> L.build_fadd
                 | A.Minus   -> L.build_fsub
                 | A.Times   -> L.build_fmul
@@ -194,12 +193,13 @@ let translate prog =
                 | _ -> raise (Failure ("internal error: operation "
                                        ^ A.string_of_op op
                                        ^ " not implemented for floats"))
-                ) e1' e2' "tmp" builder
-           | _ -> raise (Failure ("internal error: operation "
-                                  ^ A.string_of_op op
-                                  ^ " not implemented for type "
-                                  ^ A.string_of_ptype t))
-        )
+            ) e1' e2' "tmp" builder in
+            (match op with
+                A.Lt | A.LtEq | A.Eq | A.NEq | A.GtEq | A.Gt ->
+                    build_cast_bool r builder
+              | _ -> r
+            )
+
         (* Unary operation on integer *)
       | (A.ScalarType (A.TInt _), SUnop (op, e)) ->
             let e' = build_expr ctx builder e in
