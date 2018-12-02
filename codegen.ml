@@ -93,6 +93,17 @@ let translate prog =
         L.build_alloca (ltype_of_type type_) id builder
     in
 
+    (* Compare to zero *)
+    let build_is_nonzero v builder =
+        let zero = L.const_int (L.type_of v) 0 in
+        L.build_icmp L.Icmp.Ne v zero "tmp" builder
+    in
+
+    (* Casts LLVM bool (i1) to BitTwiddler's boolean (uint8) *)
+    let build_cast_bool v builder =
+        L.build_zext v (ltype_of_type A.boolean) "tmp" builder
+    in
+
     (* Built-ins *)
     let printf_t : L.lltype =
         L.var_arg_function_type i32_t [| L.pointer_type i8_t |]
@@ -131,7 +142,7 @@ let translate prog =
           | A.TInt(u,_) ->
                 let e1' = build_expr ctx builder e1
                 and e2' = build_expr ctx builder e2 in
-                (match op with
+                let r = (match op with
                   A.Plus    -> L.build_add
                 | A.Minus   -> L.build_sub
                 | A.Times   -> L.build_mul
@@ -150,7 +161,22 @@ let translate prog =
                 | _ -> raise (Failure ("internal error: operation "
                                        ^ A.string_of_op op
                                        ^ " not implemented for integers"))
-                ) e1' e2' "tmp" builder
+                ) e1' e2' "tmp" builder in
+
+                (* Boolean operations can return:
+                 *   - and/or: the type of the operands
+                 *   - comparison: i1
+                 * But we must ensure that it returns BitTwiddler's definition
+                 * of a boolean, uint8.
+                 *)
+                (match op with
+                    A.And | A.Or ->
+                        let b = build_is_nonzero r builder in
+                        build_cast_bool b builder
+                  | A.Lt | A.LtEq | A.Eq | A.NEq | A.GtEq | A.Gt ->
+                        build_cast_bool r builder
+                  | _ -> r
+                )
           | A.TFloat(_) ->
                 let e1' = build_expr ctx builder e1
                 and e2' = build_expr ctx builder e2 in
