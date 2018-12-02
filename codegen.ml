@@ -206,9 +206,9 @@ let translate prog =
             (match op with
                 A.BwNot -> L.build_not e' "tmp" builder
               | A.Not ->
-                    let n = L.build_not e' "tmp" builder in
-                    let b = build_is_nonzero n builder in
-                    build_cast_bool b builder
+                    let b = build_is_nonzero e' builder in
+                    let n = L.build_not b "tmp" builder in
+                    build_cast_bool n builder
               | A.Neg -> L.build_neg e' "tmp" builder)
 
         (* Unary operation on float *)
