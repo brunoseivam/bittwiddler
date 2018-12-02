@@ -67,7 +67,7 @@ rule token = parse
 
     (* Builtin Types *)
     | (int_uns as u) "int" (int_wid as w)
-      { INT_T(u=="u", int_of_string w) }
+      { INT_T(u="u", int_of_string w) }
 
     | "float"(float_wid as w) { FLOAT_T(int_of_string w) }
     | "string"  { STRING_T }
