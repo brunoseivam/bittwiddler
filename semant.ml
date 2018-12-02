@@ -178,11 +178,11 @@ let rec check_expr ctx e = match e with
                 ArrayType(at,_) -> ScalarType(at)
               | _ -> raise (Failure (
                   "Operator " ^ string_of_op op ^ " used on non-array")))
-              | Assign -> t2'
-                (* TODO: Access operator *)
-              | _ -> raise (failure t1' t2')
-            in
-            (ty, SBinop((t1',e1'), op, (t2',e2')))
+          | Assign -> t2'
+            (* TODO: Access operator *)
+          | _ -> raise (failure t1' t2')
+        in
+        (ty, SBinop((t1',e1'), op, (t2',e2')))
 
         (* When 'emit' is called, we have to build its arguments from the
          * format string *)
