@@ -1,4 +1,9 @@
-{ open Parser }
+{
+    open Parser
+
+    let unescape s =
+        Scanf.sscanf("\"" ^ s ^ "\"") "%S%!" (fun x -> x)
+}
 
 (* integer unsignedness and width *)
 let int_uns  = 'u'?
@@ -19,11 +24,17 @@ let dot  = '.'
 let sign = ['-' '+']
 let exp  = ['e' 'E'] sign? num+
 
-(* float_const adapted from my homework 2 *)
-let float_const = sign? ((num+ dot? num* exp)|(num* dot num+ exp?)|(num+ dot))
-let int_const = sign? num+
-let hex_const = sign?"0x" ['0'-'9' 'a'-'f' 'A'-'F']+
-let bin_const = sign?"0b" ['0' '1']+
+(* float_lit adapted from my homework 2 *)
+let float_lit = sign? ((num+ dot? num* exp)|(num* dot num+ exp?)|(num+ dot))
+let int_lit = sign? num+
+let hex_lit = sign?"0x" ['0'-'9' 'a'-'f' 'A'-'F']+
+let bin_lit = sign?"0b" ['0' '1']+
+
+(* String literal parsing copied, with modifications, from the DECAF
+ * project (Spring 2017 *)
+let ascii_dquote = [' '-'!' '#'-'[' ']'-'~'] (* ascii without double quote *)
+let ascii_squote = [' '-'&' '('-'[' ']'-'~'] (* ascii without single quote *)
+let escape = '\\' ['\\' ''' '"' 'n' 'r' 't']
 
 rule token = parse
     (* Whitespace and comments (ignored) *)
@@ -80,10 +91,10 @@ rule token = parse
     | type_ as type_ { ID_T(type_) }
 
     (* Literals *)
-    | (int_const | hex_const | bin_const) as i { INT(int_of_string i)     }
-    | float_const as f                         { FLOAT(float_of_string f) }
-    | '"' ([^'"']* as s) '"'                   { STRING(s) }
-    | ''' ([^''']* as s) '''                   { STRING(s) }
+    | (int_lit | hex_lit | bin_lit) as i    { INT(int_of_string i)     }
+    | float_lit as f                        { FLOAT(float_of_string f) }
+    | '"' ((ascii_dquote|escape)* as s) '"' { STRING(unescape s) }
+    | ''' ((ascii_squote|escape)* as s) ''' { STRING(unescape s) }
 
     | eof   { EOF }
 
