@@ -19,20 +19,20 @@
 %token <string> STRING
 %token EOF
 
-%left DOT LBRACK RBRACK
-%right NOT BWNOT
-%left TIMES DIV REM
-%left PLUS MINUS
-%left LSHIFT RSHIFT
-%left LT LTEQ GT GTEQ
-%left EQ NEQ
-%left BWAND
+%right AT
+%right COMMA
+%right ASSIGN
+%left OR
 %left BWOR
 %left AND
-%left OR
-%right ASSIGN
-%right COMMA
-%right AT DOLLAR
+%left BWAND
+%left EQ NEQ
+%left LT LTEQ GT GTEQ
+%left LSHIFT RSHIFT
+%left PLUS MINUS
+%left TIMES DIV REM
+%right NOT BWNOT
+%left DOT LBRACK RBRACK
 
 %start program
 %type <Ast.program> program
