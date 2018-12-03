@@ -126,7 +126,7 @@ let rec type_of_arr_lit = function
  *)
 
 (* Check expression. Return sexpr. *)
-let rec check_expr ctx e = match e with
+let rec check_expr ctx = function
     LInt l -> (ScalarType(TAInt), SLInt l)
   | LFloat l -> (ScalarType(TAFloat), SLFloat l)
   | LString l -> (ScalarType(TString), SLString l)
@@ -197,6 +197,61 @@ let rec check_expr ctx e = match e with
         in
         (ty, SUnop(uop, (t, e')))
 
+  | Cond(conds) ->
+        (* conds is (expr option * block_item list) list
+         *           vvvvvvvvvvv   vvvvvvvvvvvvvvv
+         *            condition         block
+         *
+         * So we iterate over conds and enforce the following constraints:
+         *   - All conditions must have boolean type
+         *   - All blocks must have the same type
+         *
+         * Then we do a transformation to make it easy for codegen:
+         *
+         *   if (pred1) {B1} else if(pred2) {B2} else {B3}
+         *
+         * Becomes:
+         *
+         *   if (pred1) {B1} else { if(pred2) {B2} else {B3} }
+         *)
+
+        (* An expression fed to an if or else if clause must be boolean *)
+        let check_cond_expr = function
+            None -> None
+          | Some e ->
+                (match (check_expr ctx e) with
+                    (ScalarType TInt(true,8),_) as e' -> Some e'
+                  | (_,sx) -> raise (Failure ("Non-boolean expression in "
+                                              ^ "conditional: "
+                                              ^ string_of_sx sx))
+                )
+        in
+
+        let rec check_conds = function
+            [] -> raise (Failure "internal error: empty conditional?")
+          | [(e, b)] ->
+                let (se, (t, sb)) = (check_cond_expr e, check_block ctx b) in
+                (t, [(se, sb)])
+          | (e, b)::tl ->
+                let (se, (t1, sb)) = (check_cond_expr e, check_block ctx b) in
+                let (t2, r) = check_conds tl in
+                if t1=t2 then
+                    (t1, (se, sb)::r)
+                else
+                    raise (Failure "conditional blocks have different types")
+        in
+
+        (* Transform into simpler nested if/else blocks *)
+        let rec simplify_conds t = function
+            [(Some se,sb)] -> SIf(se, sb, [])
+          | [(Some se1,sb1);(None,sb2)] -> SIf(se1, sb1, sb2)
+          | (Some se, sb)::tl -> SIf(se, sb, [SExpr(t, simplify_conds t tl)])
+          | _ -> raise (Failure "internal error: malformed conditional")
+        in
+
+        let (t, sconds) = check_conds conds in
+        (t, simplify_conds t sconds)
+
   (* When 'emit' is called, we have to build its arguments from the format
    * string *)
   | Call("emit", el) -> (match el with
@@ -209,9 +264,9 @@ let rec check_expr ctx e = match e with
         let (_,type_,_,_) = find_elem ctx.functions id in
         (type_, SCall(id, List.map (check_expr ctx) el))
 
-  | _ -> raise (Failure ("Not implemented: " ^ string_of_expr e))
+  | _  as e -> raise (Failure ("Not implemented: " ^ string_of_expr e))
 
-let check_var ctx v =
+and check_var ctx v =
     let Var(hidden, id, t, e) = v in
     let (t, e) = match (t, e) with
         (* Both type and initial value, check that types are compatible *)
@@ -233,16 +288,25 @@ let check_var ctx v =
     ({ ctx with variables = add_var ctx.variables sv }, sv)
 
 (* Returns a new context and a semantically checked block item *)
-let check_block_item ctx = function
+and check_block_item ctx = function
     LVar(v) -> let (ctx, sv) = check_var ctx v in (ctx, SLVar(sv))
   | Expr(e) -> (ctx, SExpr(check_expr ctx e))
   | Return(e) -> (ctx, SReturn(check_expr ctx e))
 
-let rec check_block ctx = function
-    [] -> []
+(* Returns the type of the block (type of its last item) and a list of
+ * semantically-checked block items *)
+and check_block ctx = function
+    [] -> (ScalarType TNone, [])
+  | [item] ->
+        let (_, item) = check_block_item ctx item in
+        (match item with
+            SLVar(_) | SReturn(_) -> ScalarType TNone
+          | SExpr(t, _) -> t)
+        , [item]
   | hd::tl ->
         let (ctx, item) = check_block_item ctx hd in
-        item::(check_block ctx tl)
+        let (t, block) = check_block ctx tl in
+        (t, item::block)
 
 (* Look for duplicates in a list of names *)
 let check_dup kind where names =
@@ -285,7 +349,12 @@ let check_params ctx params where =
 let check_pdecl ctx = function
     Func(id, type_, params, body) ->
         let (lctx, sp) = check_params ctx params id in
-        let sf = (id, type_, sp, check_block lctx body) in
+        (* Add itself to its local context: allow recursion *)
+        let lctx = {
+            lctx with functions = add_func ctx.functions (id,type_,sp,[])
+        } in
+        let (_, sbody) = check_block lctx body in
+        let sf = (id, type_, sp, sbody) in
         ({ ctx with functions = add_func ctx.functions sf }, SFunc sf)
   | Template(_, _, _) ->
         raise (Failure ("Not implemented")) (* TODO
@@ -327,4 +396,4 @@ let check prog =
         templates = StringMap.empty;
     } in
 
-    List.rev (check_pdecls ctx pdecls)
+    check_pdecls ctx pdecls
