@@ -7,6 +7,7 @@ type token =
   | VAR of string
 
 let parse_emit_fmt s =
+    let s = Str.global_replace (Str.regexp "%") "%%" s in
     let id = Str.regexp "{[a-z_][a-zA-Z0-9_]*}" in
 
     let rec tokens = function
