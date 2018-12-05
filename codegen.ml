@@ -55,8 +55,6 @@ let add_var ctx (id:string) (lv:L.llvalue) (sv:svar) =
             let ctx = { ctx with vars = (StringMap.add id (lv, sv) hd)::tl } in
             ctx
 
-
-
 let translate prog =
     let context = L.global_context () in
 
@@ -93,6 +91,13 @@ let translate prog =
         L.build_alloca (ltype_of_type type_) id builder
     in
 
+    (* Add a terminal to a block *)
+    let add_terminal builder instr =
+        match L.block_terminator (L.insertion_block builder) with
+            Some _ -> ()
+          | None   -> ignore (instr builder)
+    in
+
     (* Compare to zero *)
     let build_is_nonzero v builder =
         let zero = L.const_int (L.type_of v) 0 in
@@ -116,29 +121,30 @@ let translate prog =
     (* Expression builder *)
     let rec build_expr ctx builder = function
         (t, SLInt i) ->
-            L.const_int (ltype_of_type t) i
+            (builder, L.const_int (ltype_of_type t) i)
       | (t, SLFloat f) ->
-            L.const_float (ltype_of_type t) f
+            (builder, L.const_float (ltype_of_type t) f)
       | (_, SLString s) ->
-            L.build_global_stringptr s "" builder
+            (builder, L.build_global_stringptr s "" builder)
       | (_, SLArray _) ->
             raise (Failure "arrays not implemented yet")
       | (A.ScalarType _, SId id) ->
             let (v, _) = lookup_var id ctx in
-            L.build_load v id builder
+            (builder, L.build_load v id builder)
       | (_, SId _) ->
             raise (Failure "arrays not implemented yet")
 
         (* Assignment *)
       | (A.ScalarType _, SBinop ((_, SId id), A.Assign, e)) ->
-            let e' = build_expr ctx builder e in
+            let (builder, e') = build_expr ctx builder e in
             let (v,_) = lookup_var id ctx in
-            ignore(L.build_store e' v builder); e'
+            ignore(L.build_store e' v builder);
+            (builder, e')
 
         (* Binary operation on integers *)
       | (_, SBinop ((A.ScalarType A.TInt (u,_),_) as e1, op, e2)) ->
-            let e1' = build_expr ctx builder e1
-            and e2' = build_expr ctx builder e2 in
+            let (_,e1') = build_expr ctx builder e1
+            and (_,e2') = build_expr ctx builder e2 in
             let r = (match op with
                 A.Plus    -> L.build_add
               | A.Minus   -> L.build_sub
@@ -166,7 +172,7 @@ let translate prog =
              * But we must ensure that it returns BitTwiddler's definition
              * of a boolean, uint8.
              *)
-            (match op with
+            (builder, match op with
                 A.And | A.Or ->
                     let b = build_is_nonzero r builder in
                     build_cast_bool b builder
@@ -177,8 +183,8 @@ let translate prog =
 
         (* Binary operation on floats *)
       | (_, SBinop ((A.ScalarType A.TFloat _, _) as e1, op, e2)) ->
-            let e1' = build_expr ctx builder e1
-            and e2' = build_expr ctx builder e2 in
+            let (_,e1') = build_expr ctx builder e1
+            and (_,e2') = build_expr ctx builder e2 in
             let r = (match op with
                   A.Plus    -> L.build_fadd
                 | A.Minus   -> L.build_fsub
@@ -194,7 +200,7 @@ let translate prog =
                                        ^ A.string_of_op op
                                        ^ " not implemented for floats"))
             ) e1' e2' "tmp" builder in
-            (match op with
+            (builder, match op with
                 A.Lt | A.LtEq | A.Eq | A.NEq | A.GtEq | A.Gt ->
                     build_cast_bool r builder
               | _ -> r
@@ -202,8 +208,8 @@ let translate prog =
 
         (* Unary operation on integer *)
       | (A.ScalarType (A.TInt _), SUnop (op, e)) ->
-            let e' = build_expr ctx builder e in
-            (match op with
+            let (builder, e') = build_expr ctx builder e in
+            (builder, match op with
                 A.BwNot -> L.build_not e' "tmp" builder
               | A.Not ->
                     let b = build_is_nonzero e' builder in
@@ -213,14 +219,51 @@ let translate prog =
 
         (* Unary operation on float *)
       | (A.ScalarType (A.TFloat _), SUnop (A.Neg, e)) ->
-            L.build_fneg (build_expr ctx builder e) "tmp" builder
+            let (builder, e') = build_expr ctx builder e in
+            (builder, L.build_fneg e' "tmp" builder)
+
+        (* Conditional block (it's an expression) *)
+      | (t, SIf (pred, then_, else_)) ->
+            let the_function = match ctx.cur_func with
+                Some f -> f
+              | None -> raise (Failure "internal error: no current function")
+            in
+
+            (* The result of the block expression will be stored here *)
+            let block_res = match t with
+                A.ScalarType A.TNone -> None
+              | A.ScalarType _ ->
+                      Some (create_entry_block_alloca the_function "blres" t)
+              | A.ArrayType _ -> raise (Failure "arrays not implemented yet")
+            in
+
+            (* Build predicate *)
+            let (_,pred') = build_expr ctx builder pred in
+            let merge_bb = L.append_block context "merge" the_function in
+            let build_br_merge = L.build_br merge_bb in (* partial function *)
+
+            (* Build then block *)
+            let then_bb = L.append_block context "then" the_function in
+            let then_builder = (L.builder_at_end context then_bb) in
+            let then_builder = (build_block ctx then_builder block_res then_) in
+            add_terminal then_builder build_br_merge;
+
+            (* Build else block *)
+            let else_bb = L.append_block context "else" the_function in
+            let else_builder = (L.builder_at_end context else_bb) in
+            let else_builder = (build_block ctx else_builder block_res else_) in
+            add_terminal else_builder build_br_merge;
+
+            let _ = L.build_cond_br pred' then_bb else_bb builder in
+            let _ = L.move_block_after else_bb merge_bb in
+            (L.builder_at_end context merge_bb, match block_res with
+                Some v -> v
+              | None -> L.undef void_t)
 
       | (_, SCall("emit", args)) ->
-            L.build_call
-                printf_func
-                (Array.of_list (List.map (build_expr ctx builder) args))
-                "printf"
-                builder
+            let args' = List.map (build_expr ctx builder) args in
+            let args' = Array.of_list (List.map snd args') in
+            (builder, L.build_call printf_func args' "printf" builder)
       | _ as e -> raise (Failure ("expr not implemented: " ^ string_of_sexpr e))
 
     (*
@@ -233,25 +276,48 @@ let translate prog =
                 Some f ->
                     let lv = create_entry_block_alloca f id type_ in
                     let ctx = add_var ctx id lv v in
-                    let e' = build_expr ctx builder e in
-                    ignore(L.build_store e' lv builder); (ctx, builder)
+                    let (builder, e') = build_expr ctx builder e in
+                    ignore(L.build_store e' lv builder);
+                    (None, ctx, builder)
               | None ->
-                    raise (Failure "internal error: local var without function")
+                    raise (Failure "internal error: local var without stack")
             )
-      | SExpr(e) -> ignore(build_expr ctx builder e); (ctx, builder)
-      | SReturn(e) -> ignore(build_expr ctx builder e); (ctx, builder)
-      | _ as i -> raise (Failure ("can't build block item "
-                                  ^ (string_of_sblock_item i)))
+      | SExpr(e) ->
+            let (builder, e') = build_expr ctx builder e in
+            let lval = match e with
+                (A.ScalarType A.TNone, _) -> None
+              | _ -> Some e'
+            in
+            (lval, ctx, builder)
+      | SReturn(e) ->
+              ignore(build_expr ctx builder e);
+              (None, ctx, builder)
+      | _ as i ->
+              raise (Failure ("can't build block item "
+                              ^ (string_of_sblock_item i)))
 
     (*
      * Build a block
      *)
-    and build_block ctx builder = function
+    and build_block ctx builder res = function
         [] ->
             builder
+      | [item] ->
+            (* Store the value of the last item in res *)
+            let (lval, _, builder) = build_block_item ctx builder item in
+            let _ = match (res, lval) with
+                (Some r, Some v) -> ignore(L.build_store v r builder)
+              | (None, None) -> ()
+              | (Some _, None) ->
+                    raise (Failure ("Block expected to end with an "
+                                      ^ "expression"))
+              | (None, Some _) ->
+                    raise (Failure ("Block expected to be of None type"))
+            in
+            builder
       | hd::tl ->
-            let (ctx, builder) = build_block_item ctx builder hd in
-            build_block ctx builder tl
+            let (_, ctx, builder) = build_block_item ctx builder hd in
+            build_block ctx builder res tl
     in
 
     (*
@@ -333,7 +399,7 @@ let translate prog =
             cur_func = Some the_function;
             vars = StringMap.empty::ctx.vars;
         } in
-        let builder = build_block lctx builder body in
+        let builder = build_block lctx builder None body in
         let _ = add_terminal builder (ret_of_type type_) in
 
         (* Returns a context with this function added to it *)

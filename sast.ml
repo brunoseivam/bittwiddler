@@ -14,7 +14,7 @@ and sx =
   | SBinop of sexpr * op * sexpr
   | SUnop of uop * sexpr
   | SMatch of sexpr * (sexpr * sblock_item list) list
-  | SCond of (sexpr option * sblock_item list) list
+  | SIf of sexpr * sblock_item list * sblock_item list
   | SFor of string list * sexpr * sblock_item list
   | SWhile of sexpr * sblock_item list
   | SCall of string * sexpr list
@@ -70,12 +70,6 @@ and string_of_sarm arm =
     let (e, block) = arm in
     (string_of_sexpr e) ^ " -> " ^ (string_of_sblock block)
 
-and string_of_scond cond =
-    match cond with
-    (Some e, b) -> "SElseIf(" ^ (string_of_sexpr e) ^ ") "
-                   ^ (string_of_sblock b)
-  | (None, b) -> "SElse " ^ (string_of_sblock b)
-
 and string_of_sx = function
     SLInt i -> string_of_int i
   | SLFloat f -> string_of_float f
@@ -92,14 +86,10 @@ and string_of_sx = function
   | SMatch(e,arms) ->
           "SMatch(" ^ (string_of_sexpr e) ^ ") {\n"
           ^ (String.concat "\n" (List.map (string_of_sarm) arms)) ^ "\n}"
-  | SCond(conds) -> (match conds with
-        (e,b)::tl -> (match e with
-            Some e -> "SIf(" ^ (string_of_sexpr e) ^ ")"
-                      ^ (string_of_sblock b) ^ "\n"
-                      ^ (String.concat "\n" (List.map (string_of_scond) tl))
-          | None -> raise (Failure "malformed conditional"))
-      | _ -> raise (Failure "malformed conditional")
-  )
+  | SIf(pred,then_,else_) ->
+        "SIf(" ^ (string_of_sexpr pred) ^ ") "
+        ^ (string_of_sblock then_)
+        ^ "SElse " ^ (string_of_sblock else_)
   | SFor(ids, e, b) ->
           "SFor( (" ^ (String.concat "," ids) ^ ") in " ^ (string_of_sexpr e)
           ^ string_of_sblock b
