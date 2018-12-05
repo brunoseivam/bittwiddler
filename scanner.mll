@@ -81,20 +81,23 @@ rule token = parse
       { INT_T(u="u", int_of_string w) }
 
     | "float"(float_wid as w) { FLOAT_T(int_of_string w) }
+    | "bool"    { BOOL_T   }
     | "string"  { STRING_T }
-    | "None"    { NONE_T }
+    | "None"    { NONE_T   }
+
+    (* Literals *)
+    | (int_lit | hex_lit | bin_lit) as i    { INT(int_of_string i)     }
+    | float_lit as f                        { FLOAT(float_of_string f) }
+    | "true"                                { BOOL(true)         }
+    | "false"                               { BOOL(false)        }
+    | '"' ((ascii_dquote|escape)* as s) '"' { STRING(unescape s) }
+    | ''' ((ascii_squote|escape)* as s) ''' { STRING(unescape s) }
 
     (* Identifier *)
     | id as id  { ID(id) }
 
     (* Type Identifier *)
     | type_ as type_ { ID_T(type_) }
-
-    (* Literals *)
-    | (int_lit | hex_lit | bin_lit) as i    { INT(int_of_string i)     }
-    | float_lit as f                        { FLOAT(float_of_string f) }
-    | '"' ((ascii_dquote|escape)* as s) '"' { STRING(unescape s) }
-    | ''' ((ascii_squote|escape)* as s) ''' { STRING(unescape s) }
 
     | eof   { EOF }
 

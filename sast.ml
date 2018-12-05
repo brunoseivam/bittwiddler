@@ -8,6 +8,7 @@ and sx =
     SLInt of int
   | SLFloat of float
   | SLString of string
+  | SLBool of bool
   | SLArray of sexpr list
   | SId of string
   | SEType of ptype
@@ -74,6 +75,7 @@ and string_of_sx = function
     SLInt i -> string_of_int i
   | SLFloat f -> string_of_float f
   | SLString s -> "\"" ^ s ^ "\""
+  | SLBool b -> string_of_bool b
   | SLArray lx -> "[" ^ (String.concat "," (List.map string_of_sexpr lx)) ^ "]"
   | SId id -> id
   | SEType t -> "SEType(" ^ (string_of_ptype t) ^ ")"

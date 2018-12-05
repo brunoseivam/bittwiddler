@@ -63,6 +63,7 @@ let check_emit_fmt ctx emit_fmt =
                   | TAInt | TInt(false,_) -> "%d"
                   | TAFloat | TFloat(_) -> "%f"
                   | TString -> "%s"
+                  | TBool -> "%d"
                   | _ -> emit_err id (ScalarType pt)
                 ) in
                 build_args (fmt ^ tfmt) ((ScalarType pt, SId id)::args) tl
@@ -115,6 +116,8 @@ let is_float = function
 
 let is_number x = (is_integer x) || (is_float x)
 
+let is_bool = function ScalarType TBool -> true | _ -> false
+
 let rec type_of_arr_lit = function
     [] -> raise (Failure ("Can't determine type of empty literal array"))
   | [(ScalarType(t),_)] -> t
@@ -130,6 +133,7 @@ let rec check_expr ctx = function
     LInt l -> (ScalarType(TAInt), SLInt l)
   | LFloat l -> (ScalarType(TAFloat), SLFloat l)
   | LString l -> (ScalarType(TString), SLString l)
+  | LBool l -> (ScalarType TBool, SLBool l)
   | LArray el ->
         (* sel = semantically-checked expression list *)
         let sel = List.map (check_expr ctx) el in
@@ -170,8 +174,10 @@ let rec check_expr ctx = function
           | Minus | Times | Div when is_number t1' -> t1'
             (* Defined for Integers only *)
           | Rem | LShift | RShift | BwOr | BwAnd when is_integer t1' -> t1'
-            (* Boolean operations return smallest unsigned integer *)
-          | And | Or | Lt | LtEq | Eq | NEq | GtEq | Gt -> boolean
+            (* Boolean operations *)
+          | And | Or when is_bool t1' -> ScalarType TBool
+          | Lt | LtEq | Eq | NEq | GtEq | Gt -> ScalarType TBool
+
             (* Array subscript: returned type is the type of a single
              * element *)
           | Subscr -> (match t1' with
@@ -187,7 +193,7 @@ let rec check_expr ctx = function
   | Unop(uop, e) ->
         let (t, e') = check_expr ctx e in
         let ty = match (t, uop) with
-            (ScalarType (TInt _), Not) -> boolean
+            (ScalarType TBool, Not) -> t
           | (ScalarType (TInt _), BwNot)
           | (ScalarType (TInt _), Neg)
           | (ScalarType (TFloat _), Neg) -> t
@@ -220,7 +226,7 @@ let rec check_expr ctx = function
             None -> None
           | Some e ->
                 (match (check_expr ctx e) with
-                    (ScalarType TInt(true,8),_) as e' -> Some e'
+                    (ScalarType TBool,_) as e' -> Some e'
                   | (_,sx) -> raise (Failure ("Non-boolean expression in "
                                               ^ "conditional: "
                                               ^ string_of_sx sx))

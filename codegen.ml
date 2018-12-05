@@ -62,10 +62,9 @@ let translate prog =
     let the_module = L.create_module context "BitTwiddler" in
 
     (* Get types from context *)
-    let i8_t   = L.i8_type context
-    (*and i16_t  = L.i16_type context*)
+    let i1_t   = L.i1_type context
+    and i8_t   = L.i8_type context
     and i32_t  = L.i32_type context
-    (*and i64_t  = L.i64_type context*)
     and f32_t  = L.float_type context
     and f64_t  = L.double_type context
     and void_t = L.void_type context in
@@ -77,6 +76,7 @@ let translate prog =
           | A.TInt(_,w) -> L.integer_type context w
           | A.TFloat(32) -> f32_t
           | A.TAFloat | A.TFloat(64) -> f64_t
+          | A.TBool -> i1_t
           | A.TNone -> void_t
           | _ -> raise (Failure ("type not implemented " ^ A.string_of_ptype t))
         )
@@ -104,11 +104,6 @@ let translate prog =
         L.build_icmp L.Icmp.Ne v zero "tmp" builder
     in
 
-    (* Casts LLVM bool (i1) to BitTwiddler's boolean (uint8) *)
-    let build_cast_bool v builder =
-        L.build_zext v (ltype_of_type A.boolean) "tmp" builder
-    in
-
     (* Built-ins *)
     let printf_t : L.lltype =
         L.var_arg_function_type i32_t [| L.pointer_type i8_t |]
@@ -126,6 +121,8 @@ let translate prog =
             (builder, L.const_float (ltype_of_type t) f)
       | (_, SLString s) ->
             (builder, L.build_global_stringptr s "" builder)
+      | (_, SLBool b) ->
+            (builder, L.const_int i1_t (if b then 1 else 0))
       | (_, SLArray _) ->
             raise (Failure "arrays not implemented yet")
       | (A.ScalarType _, SId id) ->
@@ -153,8 +150,8 @@ let translate prog =
               | A.Rem     -> if u then L.build_urem else L.build_srem
               | A.LShift  -> L.build_shl
               | A.RShift  -> if u then L.build_lshr else L.build_ashr
-              | A.BwOr  | A.Or  -> L.build_or
-              | A.BwAnd | A.And -> L.build_and
+              | A.BwOr    -> L.build_or
+              | A.BwAnd   -> L.build_and
               | A.Lt      -> L.build_icmp (if u then L.Icmp.Ult else L.Icmp.Slt)
               | A.LtEq    -> L.build_icmp (if u then L.Icmp.Ule else L.Icmp.Sle)
               | A.Eq      -> L.build_icmp L.Icmp.Eq
@@ -165,21 +162,9 @@ let translate prog =
                                        ^ A.string_of_op op
                                        ^ " not implemented for integers"))
             ) e1' e2' "tmp" builder in
-
-            (* Boolean operations can return:
-             *   - and/or: the type of the operands
-             *   - comparison: i1
-             * But we must ensure that it returns BitTwiddler's definition
-             * of a boolean, uint8.
-             *)
             (builder, match op with
-                A.And | A.Or ->
-                    let b = build_is_nonzero r builder in
-                    build_cast_bool b builder
-              | A.Lt | A.LtEq | A.Eq | A.NEq | A.GtEq | A.Gt ->
-                    build_cast_bool r builder
-              | _ -> r
-            )
+                A.And | A.Or -> build_is_nonzero r builder
+              | _ -> r)
 
         (* Binary operation on floats *)
       | (_, SBinop ((A.ScalarType A.TFloat _, _) as e1, op, e2)) ->
@@ -200,27 +185,40 @@ let translate prog =
                                        ^ A.string_of_op op
                                        ^ " not implemented for floats"))
             ) e1' e2' "tmp" builder in
-            (builder, match op with
-                A.Lt | A.LtEq | A.Eq | A.NEq | A.GtEq | A.Gt ->
-                    build_cast_bool r builder
-              | _ -> r
-            )
+            (builder, r)
+
+        (* Binary operation on bools *)
+      | (_, SBinop ((A.ScalarType A.TBool,_) as e1, op, e2)) ->
+            let (_,e1') = build_expr ctx builder e1
+            and (_,e2') = build_expr ctx builder e2 in
+            let r = (match op with
+                  A.Or  -> L.build_or
+                | A.And -> L.build_and
+                | _ -> raise (Failure ("internal error: operation "
+                                       ^ A.string_of_op op
+                                       ^ " not implemented for bools"))
+            ) e1' e2' "tmp" builder in
+            (builder, r)
 
         (* Unary operation on integer *)
-      | (A.ScalarType (A.TInt _), SUnop (op, e)) ->
+      | (A.ScalarType (A.TInt _), SUnop (uop, e)) ->
             let (builder, e') = build_expr ctx builder e in
-            (builder, match op with
+            (builder, match uop with
                 A.BwNot -> L.build_not e' "tmp" builder
-              | A.Not ->
-                    let b = build_is_nonzero e' builder in
-                    let n = L.build_not b "tmp" builder in
-                    build_cast_bool n builder
-              | A.Neg -> L.build_neg e' "tmp" builder)
+              | A.Neg -> L.build_neg e' "tmp" builder
+              | _ -> raise (Failure ("internal error: operation "
+                                     ^ A.string_of_uop uop
+                                     ^ " not implemented for integers")))
 
         (* Unary operation on float *)
       | (A.ScalarType (A.TFloat _), SUnop (A.Neg, e)) ->
             let (builder, e') = build_expr ctx builder e in
             (builder, L.build_fneg e' "tmp" builder)
+
+        (* Unary operation on bool *)
+      | (A.ScalarType A.TBool, SUnop (A.Not, e)) ->
+            let (builder, e') = build_expr ctx builder e in
+            (builder, L.build_not e' "not" builder)
 
         (* Conditional block (it's an expression) *)
       | (t, SIf (pred, then_, else_)) ->
@@ -256,8 +254,9 @@ let translate prog =
 
             let _ = L.build_cond_br pred' then_bb else_bb builder in
             let _ = L.move_block_after else_bb merge_bb in
-            (L.builder_at_end context merge_bb, match block_res with
-                Some v -> v
+            let builder = L.builder_at_end context merge_bb in
+            (builder, match block_res with
+                Some v -> L.build_load v "res" builder
               | None -> L.undef void_t)
 
       | (_, SCall("emit", args)) ->
@@ -306,7 +305,9 @@ let translate prog =
             (* Store the value of the last item in res *)
             let (lval, _, builder) = build_block_item ctx builder item in
             let _ = match (res, lval) with
-                (Some r, Some v) -> ignore(L.build_store v r builder)
+                (Some r, Some v) ->
+                    (*let tmp = L.build_load v "tmp" builder in*)
+                    ignore(L.build_store v r builder)
               | (None, None) -> ()
               | (Some _, None) ->
                     raise (Failure ("Block expected to end with an "

@@ -10,6 +10,7 @@ type ptype =
   | TInt of (bool * int)
   | TFloat of int
   | TString
+  | TBool
   | TId of string * (expr list) option
   | TAInt (* 'abstract' integer (no size info) *)
   | TAFloat (* 'abstract' float (no size info) *)
@@ -28,6 +29,7 @@ and expr =
     LInt of int
   | LFloat of float
   | LString of string
+  | LBool of bool
   | LArray of expr list
   | Id of string
   | EType of ptype
@@ -46,8 +48,6 @@ and type_ =
 
 and param =
     Param of string * type_
-
-let boolean = ScalarType(TInt(true, 8))
 
 type template_item =
     Field of var
@@ -83,6 +83,7 @@ and string_of_ptype = function
   | TFloat(w) -> "float" ^ string_of_int w
   | TId(id, args) -> id ^ string_of_targs args
   | TString -> "string"
+  | TBool -> "bool"
   | TAInt -> "int"
   | TAFloat -> "float"
   | TType -> "Type"
@@ -92,6 +93,7 @@ and string_of_expr = function
     LInt(i) -> string_of_int i
   | LFloat(f) -> string_of_float f
   | LString(s) -> "\"" ^ s ^ "\""
+  | LBool(b) -> string_of_bool b
   | LArray(a) -> "[" ^ String.concat "," (List.map string_of_expr a) ^ "]"
   | EType(t) -> string_of_ptype t
   | Id(id) -> id

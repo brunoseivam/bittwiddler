@@ -13,10 +13,12 @@
 %token <bool * int> INT_T
 %token <int> FLOAT_T
 %token STRING_T
+%token BOOL_T
 %token NONE_T
 %token <int> INT
 %token <float> FLOAT
 %token <string> STRING
+%token <bool> BOOL
 %token EOF
 
 %right AT
@@ -43,6 +45,7 @@ typename:
     INT_T             { TInt($1)    }
   | FLOAT_T           { TFloat($1)  }
   | STRING_T          { TString     }
+  | BOOL_T            { TBool       }
   | ID_T typeargs_opt { TId($1, $2) }
   | NONE_T            { TNone       }
 
@@ -132,6 +135,7 @@ expr:
     INT    { LInt($1)    }
   | FLOAT  { LFloat($1)  }
   | STRING { LString($1) }
+  | BOOL   { LBool($1)   }
 
   | LBRACK expr_list RBRACK { LArray(List.rev $2) }
 
