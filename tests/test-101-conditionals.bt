@@ -1,0 +1,11 @@
+main {
+    var x : int16 = 0;
+    var y : int32 = if x == 0 {
+        emit("x is 0\n");
+        1;
+    } else {
+        emit("x is not 0\n");
+        2;
+    };
+    emit("y={y}\n");
+}

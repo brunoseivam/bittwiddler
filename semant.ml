@@ -278,17 +278,23 @@ and check_var ctx v =
         (* Both type and initial value, check that types are compatible *)
         (Some t, Some e) ->
             let (st, se) = check_expr ctx e in
-            let (t', st') = check_type_compat t st in
-            (t', (st', se))
+            let _ = check_type_compat t st in
+            (t, (st, se))
         (* Only type was declared, add automatic input reading (TODO)*)
       | (Some _, None) ->
             raise (Failure ("Not implemented"))
         (* Only value was declared, coerce type *)
       | (None, Some e) ->
             let (st, se) = check_expr ctx e in
-            (st, (st, se))
+            (match st with
+                ScalarType TAInt | ScalarType TAFloat ->
+                    raise (Failure ("can't determine type of variable " ^ id))
+              | _ ->
+                    (st, (st, se))
+            )
       | (None, None) ->
-            raise (Failure ("")) (*TODO: meaningful error *)
+            raise (Failure ("internal error: variable " ^ id ^
+                            " has no type and no value"))
     in
     let sv = (hidden, id, t, Some e) in
     ({ ctx with variables = add_var ctx.variables sv }, sv)
@@ -376,6 +382,73 @@ let rec check_pdecls ctx = function
     [] -> []
   | hd::tl -> let (ctx, d) = check_pdecl ctx hd in d::(check_pdecls ctx tl)
 
+let coerce_func (sf:sfunc) =
+    let (id, ftype, sparams, body) = sf in
+
+    let rec coerce_sexpr ty (t,e) = match (ty, t) with
+        (ScalarType (TInt _), ScalarType TAInt)
+      | (ScalarType (TFloat _), ScalarType TAFloat) ->
+            (match e with
+                SLInt _ | SLFloat _ ->
+                    (ty, e)
+              | SBinop(se1, op, se2) ->
+                    (ty, SBinop (coerce_sexpr ty se1, op,
+                                 coerce_sexpr ty se2))
+              | SUnop(op, se) ->
+                    (ty, SUnop (op, coerce_sexpr ty se))
+              | SIf(pred, then_, else_) ->
+                    (ty, SIf(pred, coerce_sblock ty then_,
+                             coerce_sblock ty else_))
+              | _ ->
+                    raise (Failure ("can't coerce expression "
+                                    ^ (string_of_sx e) ^ " from type "
+                                    ^ (string_of_type t) ^ " to type "
+                                    ^ (string_of_type ty)))
+            )
+      | _ -> (t, e)
+
+    and coerce_sblock_item ty = function
+        (* A variable declaration statement has None type. Its value expression
+         * must be coerced to the variable's type. For example, in:
+         *
+         *     var x: int8 = 5 + 5;
+         *
+         * the expression 5 + 5 must have type int8 *)
+        SLVar(h, id, t, Some se) ->
+            SLVar(h, id, t, Some (coerce_sexpr t se))
+
+        (* A return statement has None type. Its returned expression must have
+         * the type that the enclosing function expects *)
+      | SReturn(se) -> SReturn(coerce_sexpr ftype se)
+
+        (* The last SExpr in a block is the block's value, so its type must
+         * match the expected type ty. *)
+      | SExpr(se) ->
+              SExpr(coerce_sexpr ty se)
+
+        (* TODO: should never reach this; SLVars should have a value defined
+         * after semantic analysis *)
+      | _ as i -> i
+
+    and coerce_sblock ty = function
+        [] -> []
+        (* The last item in a block confers the block its type *)
+      | [item] -> [coerce_sblock_item ty item]
+      | hd::tl ->
+            let hd =
+               match hd with SExpr(_) -> hd | _ -> coerce_sblock_item ty hd
+            in
+            hd::(coerce_sblock ty tl)
+    in
+    SFunc(id, ftype, sparams, coerce_sblock (ScalarType TNone) body)
+
+let rec coerce_sprog = function
+    [] -> []
+  | hd::tl -> (match hd with
+        SFunc(sf) -> coerce_func sf
+      | _ -> hd
+    )::(coerce_sprog tl)
+
 (* Semantic checking of the AST. Returns an SAST if successful,
  * throws an exception if something is wrong.
  *
@@ -402,4 +475,4 @@ let check prog =
         templates = StringMap.empty;
     } in
 
-    check_pdecls ctx pdecls
+    coerce_sprog (check_pdecls ctx pdecls)

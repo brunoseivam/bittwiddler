@@ -1,0 +1,23 @@
+main {
+    var x : int16 = 0;
+    if x == 0 {
+        emit("x is 0\n");
+    } else {
+        emit("x is not 0\n");
+    };
+
+    var y : int32 = -100;
+
+    var sign_of_y : int32 = if y > 0 { 1; } elif y < 0 { -1; } else { 0; };
+    emit('sign of {y} is {sign_of_y}\n');
+
+    var forty_two : uint32 = 0x42;
+
+    if forty_two == 0 {
+        emit("forty_two==0\n");
+    } elif forty_two == 42 {
+        emit("forty_two==42\n");
+    } elif forty_two == 0x42 {
+        emit("forty_two==0x42\n");
+    };
+}
