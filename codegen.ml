@@ -263,6 +263,18 @@ let translate prog =
             let args' = List.map (build_expr ctx builder) args in
             let args' = Array.of_list (List.map snd args') in
             (builder, L.build_call printf_func args' "printf" builder)
+
+      | (_, SCall(fname, args)) ->
+            let (lf,_) =
+                try StringMap.find fname ctx.funcs
+                with Not_found ->
+                    raise (Failure ("function " ^ fname ^ " not found"))
+            in
+            let args' = List.map (build_expr ctx builder) args in
+            let args' = Array.of_list (List.map snd args') in
+            (builder, L.build_call lf args' fname builder)
+
+
       | _ as e -> raise (Failure ("expr not implemented: " ^ string_of_sexpr e))
 
     (*
@@ -289,7 +301,8 @@ let translate prog =
             in
             (lval, ctx, builder)
       | SReturn(e) ->
-              ignore(build_expr ctx builder e);
+              let (builder, e') = build_expr ctx builder e in
+              ignore(L.build_ret e' builder);
               (None, ctx, builder)
       | _ as i ->
               raise (Failure ("can't build block item "
@@ -395,11 +408,14 @@ let translate prog =
             (Array.to_list (L.params the_function))
         in
 
-        (* Build the body of the function *)
+        (* Create function's local context *)
         let lctx = { lctx with
+            funcs = StringMap.add id (the_function, f) lctx.funcs;
             cur_func = Some the_function;
             vars = StringMap.empty::lctx.vars;
         } in
+
+        (* Build the body of the function *)
         let builder = build_block lctx builder None body in
         let _ = add_terminal builder (ret_of_type type_) in
 

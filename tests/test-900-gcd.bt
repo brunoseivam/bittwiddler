@@ -1,0 +1,16 @@
+func gcd(a:uint64, b:uint64):uint64  {
+    if b == 0 {
+        return a;
+    } else {
+        return gcd(b, a % b);
+    };
+}
+
+main {
+    var a : uint64 = 10;
+    var b : uint64 = 5;
+    var r1 : uint64 = gcd(a, b);
+    var r2 : uint64 = gcd(b, a);
+    emit('gcd({a}, {b}) = {r1}\n');
+    emit('gcd({b}, {a}) = {r2}\n');
+}
