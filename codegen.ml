@@ -396,9 +396,9 @@ let translate prog =
         in
 
         (* Build the body of the function *)
-        let lctx = { ctx with
+        let lctx = { lctx with
             cur_func = Some the_function;
-            vars = StringMap.empty::ctx.vars;
+            vars = StringMap.empty::lctx.vars;
         } in
         let builder = build_block lctx builder None body in
         let _ = add_terminal builder (ret_of_type type_) in
