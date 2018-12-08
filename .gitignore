@@ -28,3 +28,4 @@ parser.mli
 parser.output
 btp
 pparser
+testall.log
