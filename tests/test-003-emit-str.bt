@@ -1,0 +1,4 @@
+main {
+    var s : string = "Hello, world!";
+    emit("{s}");
+}

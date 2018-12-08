@@ -5,3 +5,5 @@ true: package(llvm), package(llvm.analysis), package(str)
 true : warn(+a-4)
 
 true: debug
+
+"runtime.o": not_hygienic

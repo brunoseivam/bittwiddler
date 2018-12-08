@@ -6,18 +6,17 @@ open Sast
 
 module StringMap = Map.Make(String)
 
-(* TODO: maybe we only need to store llvalues here *)
 type ctx = {
-    vars : (L.llvalue * svar) StringMap.t list;     (* stack of vars *)
-    funcs : (L.llvalue * sfunc) StringMap.t;        (* functions *)
-    templs : (L.llvalue * stempl) StringMap.t;      (* templates *)
-    cur_func : L.llvalue option;                    (* current function *)
+    vars : L.llvalue StringMap.t list;  (* stack of vars *)
+    funcs : L.llvalue StringMap.t;      (* functions *)
+    templs : L.llvalue StringMap.t;     (* templates *)
+    cur_func : L.llvalue option;        (* current function *)
 }
 
 let string_of_ctx name ctx =
-    let string_of_var k (lv,_) =
+    let string_of_var k lv =
         "var " ^ k ^ ": " ^ (L.string_of_llvalue lv)
-    and string_of_func k (lv,_) =
+    and string_of_func k lv =
         "func " ^ k ^ ": " ^ (L.string_of_llvalue lv)
     in
 
@@ -52,7 +51,7 @@ let add_var ctx (id:string) (lv:L.llvalue) (sv:svar) =
     match ctx.vars with
         [] -> raise (Failure "internal error: add_var on non-existent map")
       | hd::tl ->
-            let ctx = { ctx with vars = (StringMap.add id (lv, sv) hd)::tl } in
+            let ctx = { ctx with vars = (StringMap.add id lv hd)::tl } in
             ctx
 
 let translate prog =
@@ -65,9 +64,19 @@ let translate prog =
     let i1_t   = L.i1_type context
     and i8_t   = L.i8_type context
     and i32_t  = L.i32_type context
+    and i64_t  = L.i64_type context
     and f32_t  = L.float_type context
     and f64_t  = L.double_type context
     and void_t = L.void_type context in
+
+    let __bt_arr_t = L.struct_type context [|
+        i64_t; i64_t; L.pointer_type i8_t
+    |] in
+
+    let __bt_str_t = L.struct_type context [|
+        i64_t; L.pointer_type __bt_arr_t
+    |] in
+
 
     (* Get LLVM type from BitTwiddler type *)
     let ltype_of_type = function
@@ -78,6 +87,7 @@ let translate prog =
           | A.TAFloat | A.TFloat(64) -> f64_t
           | A.TBool -> i1_t
           | A.TNone -> void_t
+          | A.TString -> L.pointer_type __bt_str_t
           | _ -> raise (Failure ("type not implemented " ^ A.string_of_ptype t))
         )
       | _ as t -> raise (Failure ("type not implemented " ^ A.string_of_type t))
@@ -104,13 +114,55 @@ let translate prog =
         L.build_icmp L.Icmp.Ne v zero "tmp" builder
     in
 
-    (* Built-ins *)
-    let printf_t : L.lltype =
-        L.var_arg_function_type i32_t [| L.pointer_type i8_t |]
+    (* External/runtime functions and types *)
+    let printf_func : L.llvalue =
+        let printf_t =
+            L.var_arg_function_type i32_t [| L.pointer_type i8_t |]
+        in
+        L.declare_function "printf" printf_t the_module
     in
 
-    let printf_func : L.llvalue =
-        L.declare_function "printf" printf_t the_module
+    let __bt_arr_new =
+        let __bt_arr_new_t =
+            L.function_type (L.pointer_type __bt_arr_t) [|
+                i64_t; i64_t
+            |]
+        in
+        L.declare_function "__bt_arr_new" __bt_arr_new_t the_module
+    in
+
+    let __bt_str_new =
+        let __bt_str_new_t =
+            L.function_type (L.pointer_type __bt_str_t) [|
+                L.pointer_type i8_t
+            |]
+        in
+        L.declare_function "__bt_str_new" __bt_str_new_t the_module
+    in
+
+    let __bt_str_concat =
+        let __bt_str_concat_t =
+            L.function_type (L.pointer_type __bt_str_t) [|
+                L.pointer_type __bt_str_t; L.pointer_type __bt_str_t;
+            |]
+        in
+        L.declare_function "__bt_str_concat" __bt_str_concat_t the_module
+    in
+
+    let __bt_str_get =
+        let __bt_str_get_t =
+            L.function_type (L.pointer_type i8_t) [|
+                L.pointer_type __bt_str_t;
+            |]
+        in
+        L.declare_function "__bt_str_get" __bt_str_get_t the_module
+    in
+
+    let read_func =
+        let read_t =
+            L.function_type i64_t [| L.pointer_type i8_t |]
+        in
+        L.declare_function "read" read_t the_module
     in
 
     (* Expression builder *)
@@ -120,22 +172,24 @@ let translate prog =
       | (t, SLFloat f) ->
             (builder, L.const_float (ltype_of_type t) f)
       | (_, SLString s) ->
-            (builder, L.build_global_stringptr s "" builder)
+            let gptr = L.build_global_stringptr s "" builder in
+            let s =
+                L.build_call __bt_str_new [| gptr |] "__bt_str_new" builder
+            in
+            (builder, s)
       | (_, SLBool b) ->
             (builder, L.const_int i1_t (if b then 1 else 0))
       | (_, SLArray _) ->
             raise (Failure "arrays not implemented yet")
       | (A.ScalarType _, SId id) ->
-            let (v, _) = lookup_var id ctx in
-            (builder, L.build_load v id builder)
+            (builder, L.build_load (lookup_var id ctx) id builder)
       | (_, SId _) ->
             raise (Failure "arrays not implemented yet")
 
         (* Assignment *)
       | (A.ScalarType _, SBinop ((_, SId id), A.Assign, e)) ->
             let (builder, e') = build_expr ctx builder e in
-            let (v,_) = lookup_var id ctx in
-            ignore(L.build_store e' v builder);
+            ignore(L.build_store e' (lookup_var id ctx) builder);
             (builder, e')
 
         (* Binary operation on integers *)
@@ -260,22 +314,33 @@ let translate prog =
               | None -> L.undef void_t)
 
       | (_, SCall("emit", args)) ->
-            let args' = List.map (build_expr ctx builder) args in
+            let args' = List.map (build_expr_s ctx builder) args in
             let args' = Array.of_list (List.map snd args') in
             (builder, L.build_call printf_func args' "printf" builder)
 
+
       | (_, SCall(fname, args)) ->
-            let (lf,_) =
-                try StringMap.find fname ctx.funcs
-                with Not_found ->
-                    raise (Failure ("function " ^ fname ^ " not found"))
-            in
             let args' = List.map (build_expr ctx builder) args in
             let args' = Array.of_list (List.map snd args') in
-            (builder, L.build_call lf args' fname builder)
 
+            let call =
+                let lf =
+                    try StringMap.find fname ctx.funcs
+                    with Not_found ->
+                        raise (Failure ("function " ^ fname ^ " not found"))
+                in
+                L.build_call lf args' fname builder
+            in
+            (builder, call)
 
       | _ as e -> raise (Failure ("expr not implemented: " ^ string_of_sexpr e))
+
+    (* Build an expression, flattening strings *)
+    and build_expr_s ctx builder = function
+        (A.ScalarType A.TString, _) as e ->
+            let (builder, e') = build_expr ctx builder e in
+            (builder, L.build_call __bt_str_get [| e' |] "__bt_str_get" builder)
+      | _ as e -> build_expr ctx builder e
 
     (*
      * Build an sblock_item
@@ -403,14 +468,14 @@ let translate prog =
         let lctx = add_params ctx params in
         let _ = List.iter2
             (fun (id,_) value ->
-                ignore(L.build_store value (fst (lookup_var id lctx)) builder))
+                ignore(L.build_store value (lookup_var id lctx) builder))
             params
             (Array.to_list (L.params the_function))
         in
 
         (* Create function's local context *)
         let lctx = { lctx with
-            funcs = StringMap.add id (the_function, f) lctx.funcs;
+            funcs = StringMap.add id the_function lctx.funcs;
             cur_func = Some the_function;
             vars = StringMap.empty::lctx.vars;
         } in
@@ -420,7 +485,7 @@ let translate prog =
         let _ = add_terminal builder (ret_of_type type_) in
 
         (* Returns a context with this function added to it *)
-        { ctx with funcs = StringMap.add id (the_function, f) ctx.funcs }
+        { ctx with funcs = StringMap.add id the_function ctx.funcs }
     in
 
     (* Build a template *
