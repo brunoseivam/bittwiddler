@@ -47,7 +47,7 @@ let lookup_var k ctx =
     with Not_found -> raise (Failure ("variable " ^ k ^ " not found"))
 
 (* Adds a var to the top var map of the context ctx *)
-let add_var ctx (id:string) (lv:L.llvalue) (sv:svar) =
+let add_var ctx (id:string) (lv:L.llvalue) =
     match ctx.vars with
         [] -> raise (Failure "internal error: add_var on non-existent map")
       | hd::tl ->
@@ -156,13 +156,6 @@ let translate prog =
             |]
         in
         L.declare_function "__bt_str_get" __bt_str_get_t the_module
-    in
-
-    let read_func =
-        let read_t =
-            L.function_type i64_t [| L.pointer_type i8_t |]
-        in
-        L.declare_function "read" read_t the_module
     in
 
     (* Expression builder *)
@@ -346,12 +339,12 @@ let translate prog =
      * Build an sblock_item
      *)
     and build_block_item ctx builder = function
-        SLVar(_, id, type_, Some e as v) ->
+        SLVar(_, id, type_, Some e) ->
             (match ctx.cur_func with
                 (* Allocate var on the stack and add it to the context *)
                 Some f ->
                     let lv = create_entry_block_alloca f id type_ in
-                    let ctx = add_var ctx id lv v in
+                    let ctx = add_var ctx id lv in
                     let (builder, e') = build_expr ctx builder e in
                     ignore(L.build_store e' lv builder);
                     (None, ctx, builder)
@@ -433,7 +426,7 @@ let translate prog =
                                  ^ "not implemented"))
         in
         let the_var = L.define_global id init the_module in
-        add_var ctx id the_var v
+        add_var ctx id the_var
     in
 
     (* Build a function *)
@@ -446,9 +439,8 @@ let translate prog =
 
         (* Add a parameter to the stack *)
         let add_param ctx id type_ =
-            let sv = (false, id, type_, None) in
             let lv = create_entry_block_alloca the_function id type_ in
-            add_var ctx id lv sv
+            add_var ctx id lv
         in
 
         let rec add_params ctx = function
