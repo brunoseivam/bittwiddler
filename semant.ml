@@ -12,6 +12,9 @@ type context = {
     templates : stempl StringMap.t;
 }
 
+(* Shorthand *)
+let fail s = raise (Failure s)
+
 let string_of_ctx ctx =
     let string_of_sfunc (f:sfunc) = string_of_spdecl (SFunc f) in
     let string_of_stempl (t:stempl) = string_of_spdecl (STemplate t) in
@@ -27,7 +30,7 @@ let string_of_ctx ctx =
 let add_to_map map id elem kind =
     match id with
         _ when StringMap.mem id map ->
-            raise (Failure ("duplicate " ^ kind ^ " declaration: " ^ id))
+            fail ("duplicate " ^ kind ^ " declaration: " ^ id)
       | _ -> StringMap.add id elem map
 
 let add_var map = function
@@ -41,18 +44,17 @@ let add_templ map = function
 
 let find_elem map id =
     try StringMap.find id map
-    with Not_found -> raise (Failure ("undeclared identifier " ^ id))
+    with Not_found -> fail ("undeclared identifier " ^ id)
 
 (* Built-in functions transformations *)
 let check_emit_fmt fname ctx emit_fmt =
     let emit_err id t =
-        raise (Failure ("don't know how to emit " ^ id ^ ":"
-                        ^ string_of_type t))
+        fail ("don't know how to emit " ^ id ^ ":" ^ string_of_type t)
     in
 
     let fkind = (ScalarType (TInt(false, 32)), SLInt(match fname with
         "emit" -> 0 | "print" -> 1 | "fatal" -> 2
-      | _ -> raise (Failure ("invalid 'emit' kind: '" ^ fname ^ "'"))))
+      | _ -> fail ("invalid 'emit' kind: '" ^ fname ^ "'")))
     in
 
     (* Builds the printf-ready format string and list of variable ids *)
@@ -84,10 +86,9 @@ let check_emit_fmt fname ctx emit_fmt =
 (* Type compatibility: 'abstract' types are promoted to concrete types *)
 (* TODO: upcast for different integer/float sizes *)
 let check_type_compat t1 t2 =
-    let failure = Failure (
-       "Incompatible types " ^ string_of_type t1
-       ^ " and " ^ string_of_type t2
-    ) in
+    let failure = "Incompatible types " ^ string_of_type t1
+        ^ " and " ^ string_of_type t2
+    in
 
     let upcast t1 t2 = match (t1,t2) with
         (TInt(_,_), TAInt) -> (t1, t1)
@@ -95,7 +96,7 @@ let check_type_compat t1 t2 =
       | (TFloat(_), TAFloat) -> (t1, t1)
       | (TAFloat, TFloat(_)) -> (t2, t2)
       | (_, _) when t1 = t2 -> (t1, t2)
-      | _ -> raise failure
+      | _ -> fail failure
     in
 
     match (t1, t2) with
@@ -105,7 +106,7 @@ let check_type_compat t1 t2 =
       | (ArrayType(st1,l1), ArrayType(st2,l2)) when l1=l2 ->
             let (st1', st2') = upcast st1 st2 in
                 (ArrayType(st1',l1), ArrayType(st2',l2))
-      | _ -> raise failure
+      | _ -> fail failure
 
 let is_array = function
     ArrayType(_,_) -> true
@@ -124,10 +125,10 @@ let is_number x = (is_integer x) || (is_float x)
 let is_bool = function ScalarType TBool -> true | _ -> false
 
 let rec type_of_arr_lit = function
-    [] -> raise (Failure ("Can't determine type of empty literal array"))
+    [] -> fail "Can't determine type of empty literal array"
   | [(ScalarType(t),_)] -> t
   | (ScalarType(t),_)::tl when t = type_of_arr_lit tl -> t
-  | _ -> raise (Failure ("Array literal has mixed or invalid types"))
+  | _ -> fail "Array literal has mixed or invalid types"
 
 (*
  * Checkers that return semantically checked elements
@@ -148,10 +149,10 @@ let rec check_expr ctx = function
         let (_,_,type_,_) = find_elem ctx.variables s in (type_, SId s)
   | EType t -> (ScalarType TType , SEType t)
   | Binop(e1,op,e2) ->
-        let failure t1 t2 = Failure (
+        let failure t1 t2 =
             "Operator " ^ string_of_op op ^ " not defined for types "
             ^ string_of_type t1 ^ " and " ^ string_of_type t2
-        ) in
+        in
 
         let (t1, e1') = check_expr ctx e1
         and (t2, e2') = check_expr ctx e2 in
@@ -173,7 +174,7 @@ let rec check_expr ctx = function
                     ArrayType(st1',Some(LInt(l1+l2)))
                 (* Number addition *)
               | (t1',_) when is_number t1' -> t1'
-              | _ -> raise (failure t1' t2'))
+              | _ -> fail (failure t1' t2'))
 
             (* Arithmetic: defined for numbers *)
           | Minus | Times | Div when is_number t1' -> t1'
@@ -187,11 +188,11 @@ let rec check_expr ctx = function
              * element *)
           | Subscr -> (match t1' with
                 ArrayType(at,_) -> ScalarType(at)
-              | _ -> raise (Failure (
-                  "Operator " ^ string_of_op op ^ " used on non-array")))
+              | _ -> fail ("Operator " ^ string_of_op op
+                           ^ " used on non-array"))
           | Assign -> t2'
             (* TODO: Access operator *)
-          | _ -> raise (failure t1' t2')
+          | _ -> fail (failure t1' t2')
         in
         (ty, SBinop((t1',e1'), op, (t2',e2')))
 
@@ -202,9 +203,9 @@ let rec check_expr ctx = function
           | (ScalarType (TInt _), BwNot)
           | (ScalarType (TInt _), Neg)
           | (ScalarType (TFloat _), Neg) -> t
-          | _ -> raise (Failure ("Operator " ^ (string_of_uop uop)
+          | _ -> fail ("Operator " ^ (string_of_uop uop)
                                  ^ " not defined for type "
-                                 ^ (string_of_type t)))
+                                 ^ (string_of_type t))
         in
         (ty, SUnop(uop, (t, e')))
 
@@ -232,14 +233,13 @@ let rec check_expr ctx = function
           | Some e ->
                 (match (check_expr ctx e) with
                     (ScalarType TBool,_) as e' -> Some e'
-                  | (_,sx) -> raise (Failure ("Non-boolean expression in "
-                                              ^ "conditional: "
-                                              ^ string_of_sx sx))
+                  | (_,sx) -> fail ("Non-boolean expression in conditional: "
+                                    ^ string_of_sx sx)
                 )
         in
 
         let rec check_conds = function
-            [] -> raise (Failure "internal error: empty conditional?")
+            [] -> fail "internal error: empty conditional?"
           | [(e, b)] ->
                 let (se, (t, sb)) = (check_cond_expr e, check_block ctx b) in
                 (t, [(se, sb)])
@@ -249,7 +249,7 @@ let rec check_expr ctx = function
                 if t1=t2 then
                     (t1, (se, sb)::r)
                 else
-                    raise (Failure "conditional blocks have different types")
+                    fail "conditional blocks have different types"
         in
 
         (* Transform into simpler nested if/else blocks *)
@@ -257,7 +257,7 @@ let rec check_expr ctx = function
             [(Some se,sb)] -> SIf(se, sb, [])
           | [(Some se1,sb1);(None,sb2)] -> SIf(se1, sb1, sb2)
           | (Some se, sb)::tl -> SIf(se, sb, [SExpr(t, simplify_conds t tl)])
-          | _ -> raise (Failure "internal error: malformed conditional")
+          | _ -> fail "internal error: malformed conditional"
         in
 
         let (t, sconds) = check_conds conds in
@@ -269,14 +269,15 @@ let rec check_expr ctx = function
         "emit" | "print" | "fatal" ->
             (match el with
                 [(LString s)] ->
-                    (ScalarType TNone, SCall("emit", check_emit_fmt id ctx s))
-              | _ -> raise (Failure ("'" ^ id ^ "' requires a single literal "
-                                     ^ "string argument")))
+                    (ScalarType TNone, SCall("__bt_emit",
+                                             check_emit_fmt id ctx s))
+              | _ -> fail ("'" ^ id ^ "' requires a single literal "
+                                     ^ "string argument"))
       | _ ->
             let (_,type_,_,_) = find_elem ctx.functions id in
             (type_, SCall(id, List.map (check_expr ctx) el)))
 
-  | _  as e -> raise (Failure ("Not implemented: " ^ string_of_expr e))
+  | _  as e -> fail ("Not implemented: " ^ string_of_expr e)
 
 and check_var ctx v =
     let Var(hidden, id, t, e) = v in
@@ -286,21 +287,22 @@ and check_var ctx v =
             let (st, se) = check_expr ctx e in
             let _ = check_type_compat t st in
             (t, (st, se))
-        (* Only type was declared, add automatic input reading (TODO)*)
-      | (Some _, None) ->
-            raise (Failure ("Not implemented"))
+
+        (* Only type was declared, add automatic input reading *)
+      | (Some t, None) -> (t, (t, SCall("__bt_read", [])))
+
         (* Only value was declared, coerce type *)
       | (None, Some e) ->
             let (st, se) = check_expr ctx e in
             (match st with
                 ScalarType TAInt | ScalarType TAFloat ->
-                    raise (Failure ("can't determine type of variable " ^ id))
+                    fail ("can't determine type of variable " ^ id)
               | _ ->
                     (st, (st, se))
             )
       | (None, None) ->
-            raise (Failure ("internal error: variable " ^ id ^
-                            " has no type and no value"))
+            fail ("internal error: variable " ^ id
+                  ^ " has no type and no value")
     in
     let sv = (hidden, id, t, Some e) in
     ({ ctx with variables = add_var ctx.variables sv }, sv)
@@ -332,7 +334,7 @@ let check_dup kind where names =
     let rec dups = function
         [] -> ()
       | (a::b::_) when a = b ->
-              raise (Failure ("duplicate " ^ kind ^ " in " ^ where ^ ": " ^ a))
+              fail ("duplicate " ^ kind ^ " in " ^ where ^ ": " ^ a)
       | _ :: t -> dups t
     in dups sorted
 
@@ -352,9 +354,9 @@ let check_params ctx params where =
     in
     let _ = List.iter (function
         Param(id,ScalarType(TNone)) ->
-            raise (Failure ("illegal " ^ id ^ " : None in " ^ where))
+            fail ("illegal " ^ id ^ " : None in " ^ where)
       | Param(id,ArrayType(TNone,_)) ->
-            raise (Failure ("illegal " ^ id ^ " : None[] in " ^ where))
+            fail ("illegal " ^ id ^ " : None[] in " ^ where)
       | _ -> ()
     ) params in
 
@@ -375,11 +377,11 @@ let check_pdecl ctx = function
         let sf = (id, type_, sp, sbody) in
         ({ ctx with functions = add_func ctx.functions sf }, SFunc sf)
   | Template(_, _, _) ->
-        raise (Failure ("Not implemented")) (* TODO
+        fail "Not implemented" (* TODO
         let st = STemplate(id, check_params params, check_tblock ctx body) in
         ({ ctx with templates = add_templ ctx.templates st}, st)*)
   | GVar(Var(true,id,_,_)) ->
-        raise (Failure ("Global variables can't be hidden: " ^ id))
+        fail ("Global variables can't be hidden: " ^ id)
   | GVar(v) ->
         let (ctx, sv) = check_var ctx v in
         (ctx, SGVar(sv))
@@ -406,10 +408,10 @@ let coerce_func (sf:sfunc) =
                     (ty, SIf(pred, coerce_sblock ty then_,
                              coerce_sblock ty else_))
               | _ ->
-                    raise (Failure ("can't coerce expression "
-                                    ^ (string_of_sx e) ^ " from type "
-                                    ^ (string_of_type t) ^ " to type "
-                                    ^ (string_of_type ty)))
+                    fail ("can't coerce expression "
+                          ^ (string_of_sx e) ^ " from type "
+                          ^ (string_of_type t) ^ " to type "
+                          ^ (string_of_type ty))
             )
       | _ -> (t, e)
 

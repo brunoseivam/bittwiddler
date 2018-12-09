@@ -333,6 +333,13 @@ void __bt_read(void *target, size_t n) {
     exit(1);
 }
 
+int8_t  __bt_read_i8(void)  { int8_t v;  __bt_read((void*)&v, 1); return v; }
+int16_t __bt_read_i16(void) { int16_t v; __bt_read((void*)&v, 2); return v; }
+int32_t __bt_read_i32(void) { int32_t v; __bt_read((void*)&v, 4); return v; }
+int64_t __bt_read_i64(void) { int64_t v; __bt_read((void*)&v, 8); return v; }
+float   __bt_read_f32(void) { float v;   __bt_read((void*)&v, 4); return v; }
+double  __bt_read_f64(void) { double v;  __bt_read((void*)&v, 8); return v; }
+
 /*
  *
  * BitTwiddler printing function

@@ -3,4 +3,4 @@ OCaml: programming language
 vim: text editor
 git: version control
 GitHub: project hosting
-
+hexdump: check binary inputs

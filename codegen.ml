@@ -63,6 +63,7 @@ let translate prog =
     (* Get types from context *)
     let i1_t   = L.i1_type context
     and i8_t   = L.i8_type context
+    and i16_t  = L.i16_type context
     and i32_t  = L.i32_type context
     and i64_t  = L.i64_type context
     and f32_t  = L.float_type context
@@ -120,6 +121,23 @@ let translate prog =
             L.var_arg_function_type void_t [| i32_t; L.pointer_type i8_t |]
         in
         L.declare_function "__bt_emit" __bt_emit_t the_module
+    in
+
+    let __bt_read n t =
+        let ftype = L.function_type t [| |] in
+        L.declare_function ("__bt_read_" ^ n) ftype the_module
+    in
+
+    let __bt_read_i8  = __bt_read "i8"  i8_t in
+    let __bt_read_i16 = __bt_read "i16" i16_t in
+    let __bt_read_i32 = __bt_read "i32" i32_t in
+    let __bt_read_i64 = __bt_read "i64" i64_t in
+    let __bt_read_f32 = __bt_read "f32" f32_t in
+    let __bt_read_f64 = __bt_read "f64" f64_t in
+
+    let __bt_read_str =
+        let ftype = L.function_type (L.pointer_type __bt_str_t) [| |] in
+        L.declare_function "__bt_str_read" ftype the_module
     in
 
     let __bt_arr_new =
@@ -306,13 +324,25 @@ let translate prog =
                 Some v -> L.build_load v "res" builder
               | None -> L.undef void_t)
 
-      | (_, SCall(fname, args))
-                when fname="emit" || fname="print" || fname="fatal" ->
-
+      | (_, SCall("__bt_emit", args)) ->
             let args' = List.map (build_expr_s ctx builder) args in
             let args' = Array.of_list (List.map snd args') in
             (builder, L.build_call __bt_emit args' "" builder)
 
+      | (A.ScalarType t, SCall("__bt_read", _)) ->
+            let f = match t with
+                A.TInt(_,8)  -> __bt_read_i8
+              | A.TInt(_,16) -> __bt_read_i16
+              | A.TInt(_,32) -> __bt_read_i32
+              | A.TInt(_,64) -> __bt_read_i64
+              | A.TFloat 32  -> __bt_read_f32
+              | A.TFloat 64  -> __bt_read_f64
+              | A.TString    -> __bt_read_str
+              | _ -> raise (Failure ("automatic reading of scalar type "
+                                     ^ (A.string_of_ptype t)
+                                     ^ " not implemented"))
+            in
+            (builder, L.build_call f [| |] "__bt_read" builder)
 
       | (_, SCall(fname, args)) ->
             let args' = List.map (build_expr ctx builder) args in
