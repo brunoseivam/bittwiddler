@@ -114,12 +114,12 @@ let translate prog =
         L.build_icmp L.Icmp.Ne v zero "tmp" builder
     in
 
-    (* External/runtime functions and types *)
-    let printf_func : L.llvalue =
-        let printf_t =
-            L.var_arg_function_type i32_t [| L.pointer_type i8_t |]
+    (* Runtime functions *)
+    let __bt_emit : L.llvalue =
+        let __bt_emit_t =
+            L.var_arg_function_type void_t [| i32_t; L.pointer_type i8_t |]
         in
-        L.declare_function "printf" printf_t the_module
+        L.declare_function "__bt_emit" __bt_emit_t the_module
     in
 
     let __bt_arr_new =
@@ -306,10 +306,12 @@ let translate prog =
                 Some v -> L.build_load v "res" builder
               | None -> L.undef void_t)
 
-      | (_, SCall("emit", args)) ->
+      | (_, SCall(fname, args))
+                when fname="emit" || fname="print" || fname="fatal" ->
+
             let args' = List.map (build_expr_s ctx builder) args in
             let args' = Array.of_list (List.map snd args') in
-            (builder, L.build_call printf_func args' "printf" builder)
+            (builder, L.build_call __bt_emit args' "" builder)
 
 
       | (_, SCall(fname, args)) ->
@@ -322,7 +324,10 @@ let translate prog =
                     with Not_found ->
                         raise (Failure ("function " ^ fname ^ " not found"))
                 in
-                L.build_call lf args' fname builder
+                let result = if L.type_of lf = void_t then ""
+                    else fname ^ "_result"
+                in
+                L.build_call lf args' result builder
             in
             (builder, call)
 
@@ -376,15 +381,12 @@ let translate prog =
             (* Store the value of the last item in res *)
             let (lval, _, builder) = build_block_item ctx builder item in
             let _ = match (res, lval) with
-                (Some r, Some v) ->
-                    (*let tmp = L.build_load v "tmp" builder in*)
-                    ignore(L.build_store v r builder)
+                (Some r, Some v) -> ignore(L.build_store v r builder)
               | (None, None) -> ()
-              | (Some _, None) ->
-                    raise (Failure ("Block expected to end with an "
-                                      ^ "expression"))
-              | (None, Some _) ->
-                    raise (Failure ("Block expected to be of None type"))
+              | (Some _, None) -> raise (Failure ("Block expected to end with "
+                                                  ^ "an expression"))
+              | (None, Some _) -> raise (Failure ("Block expected to be of "
+                                                  ^ "None type"))
             in
             builder
       | hd::tl ->

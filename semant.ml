@@ -44,10 +44,15 @@ let find_elem map id =
     with Not_found -> raise (Failure ("undeclared identifier " ^ id))
 
 (* Built-in functions transformations *)
-let check_emit_fmt ctx emit_fmt =
+let check_emit_fmt fname ctx emit_fmt =
     let emit_err id t =
         raise (Failure ("don't know how to emit " ^ id ^ ":"
                         ^ string_of_type t))
+    in
+
+    let fkind = (ScalarType (TInt(false, 32)), SLInt(match fname with
+        "emit" -> 0 | "print" -> 1 | "fatal" -> 2
+      | _ -> raise (Failure ("invalid 'emit' kind: '" ^ fname ^ "'"))))
     in
 
     (* Builds the printf-ready format string and list of variable ids *)
@@ -73,7 +78,7 @@ let check_emit_fmt ctx emit_fmt =
 
     (* Note: args is reversed here *)
     let (fmt, args) = build_args "" [] (parse_emit_fmt emit_fmt) in
-    ([(ScalarType TString, SLString fmt)] @ (List.rev args))
+    ([fkind; (ScalarType TString, SLString fmt)] @ (List.rev args))
 
 
 (* Type compatibility: 'abstract' types are promoted to concrete types *)
@@ -260,15 +265,16 @@ let rec check_expr ctx = function
 
   (* When 'emit' is called, we have to build its arguments from the format
    * string *)
-  | Call("emit", el) -> (match el with
-            [(LString s)] ->
-                (ScalarType TNone, SCall("emit", check_emit_fmt ctx s))
-          | _ -> raise (Failure ("emit requires a single literal "
-                                 ^ "string argument")))
-
-  | Call(id, el) ->
-        let (_,type_,_,_) = find_elem ctx.functions id in
-        (type_, SCall(id, List.map (check_expr ctx) el))
+  | Call(id, el) -> (match id with
+        "emit" | "print" | "fatal" ->
+            (match el with
+                [(LString s)] ->
+                    (ScalarType TNone, SCall("emit", check_emit_fmt id ctx s))
+              | _ -> raise (Failure ("'" ^ id ^ "' requires a single literal "
+                                     ^ "string argument")))
+      | _ ->
+            let (_,type_,_,_) = find_elem ctx.functions id in
+            (type_, SCall(id, List.map (check_expr ctx) el)))
 
   | _  as e -> raise (Failure ("Not implemented: " ^ string_of_expr e))
 

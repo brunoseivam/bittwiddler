@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdarg.h>
 
 /*
  *
@@ -331,3 +332,29 @@ void __bt_read(void *target, size_t n) {
     fprintf(stderr, "Aborting...\n");
     exit(1);
 }
+
+/*
+ *
+ * BitTwiddler printing function
+ *
+ */
+
+enum __bt_emit_kind {
+    __BT_EMIT_EMIT,
+    __BT_EMIT_PRINT,
+    __BT_EMIT_FATAL
+};
+
+void __bt_emit(int kind, const char *fmt, ...) {
+    FILE * stream = kind == __BT_EMIT_EMIT ? stdout : stderr;
+
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(stream, fmt, args);
+    va_end(args);
+
+    if (kind == __BT_EMIT_FATAL) {
+        exit(1);
+    }
+}
+
