@@ -29,3 +29,4 @@ parser.output
 btp
 pparser
 testall.log
+gen_bin_data
