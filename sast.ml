@@ -26,7 +26,7 @@ and sblock_item =
   | SExpr of sexpr
   | SReturn of sexpr
 
-and svar = bool * string * type_ * sexpr option
+and svar = string * type_ * sexpr option
 
 type sparam = string * type_
 
@@ -109,8 +109,8 @@ and string_of_sexpr e =
     "(# " ^ string_of_type type_ ^ " $ " ^ string_of_sx sx ^ " #)"
 
 and string_of_svar v =
-    let (hidden, id, type_, value) = v in
-    "(" ^ (if hidden then "@" else "") ^ id ^ ":" ^ (string_of_type type_)
+    let (id, type_, value) = v in
+    "(" ^ id ^ ":" ^ (string_of_type type_)
     ^ ", value=" ^
     (match value with Some e -> (string_of_sexpr e) | None -> "")
     ^  ")"

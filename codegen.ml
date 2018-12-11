@@ -374,7 +374,7 @@ let translate prog =
      * Build an sblock_item
      *)
     and build_block_item ctx builder = function
-        SLVar(_, id, type_, Some e) ->
+        SLVar(id, type_, Some e) ->
             (match ctx.cur_func with
                 (* Allocate var on the stack and add it to the context *)
                 Some f ->
@@ -449,7 +449,7 @@ let translate prog =
 
     (* Build a global variable *)
     let build_gvar ctx v =
-        let (_, id, type_, _) = v in
+        let (id, type_, _) = v in
         let ltype = ltype_of_type type_ in
         let init = match type_ with
             A.ScalarType(A.TInt(_,_)) -> L.const_int ltype 0

@@ -4,7 +4,7 @@
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK LANGLE RANGLE
 %token TEMPLATE MAIN FUNCTION RETURN VAR
 %token FOR IN WHILE MATCH ARM IF ELSE ELIF
-%token DOT COMMA COLON AT SEMICOLON ASSIGN
+%token DOT COMMA COLON SEMICOLON ASSIGN
 %token PLUS MINUS TIMES DIV REM
 %token LSHIFT RSHIFT BWOR BWAND BWNOT
 %token AND OR NOT
@@ -74,14 +74,10 @@ params_opt:
     /* empty */          { [] }
   | LPAREN params RPAREN { $2 }
 
-opt_hide:
-    /* empty */ { false }
-  | AT          { true  }
-
 var:
-    VAR opt_hide ID COLON type_ ASSIGN expr SEMICOLON {  Var($2, $3, Some $5, Some $7) }
-  | VAR opt_hide ID COLON type_             SEMICOLON {  Var($2, $3, Some $5, None   ) }
-  | VAR opt_hide ID             ASSIGN expr SEMICOLON {  Var($2, $3, None,    Some $5) }
+    VAR ID COLON type_ ASSIGN expr SEMICOLON {  Var($2, Some $4, Some $6) }
+  | VAR ID COLON type_             SEMICOLON {  Var($2, Some $4, None   ) }
+  | VAR ID             ASSIGN expr SEMICOLON {  Var($2, None,    Some $4) }
 
 match_:
     MATCH expr match_block { Match($2, $3) }

@@ -18,7 +18,7 @@ type ptype =
   | TNone
 
 and var =
-    Var of bool * string * type_ option * expr option
+    Var of string * type_ option * expr option
 
 and block_item =
     LVar of var (* local variable declaration *)
@@ -170,9 +170,8 @@ and
   | params -> "(" ^ String.concat "," (List.map string_of_param params) ^ ") "
 and
     string_of_var = function
-    Var(hidden, id, type_, expr) ->
-        "var"
-        ^ (match hidden with true -> "@ " | false -> " ")
+    Var(id, type_, expr) ->
+        "var "
         ^ id
         ^ (match type_ with Some(t) -> " : " ^ string_of_type t | None -> "")
         ^ (match expr with Some(e) -> " = " ^ string_of_expr e | None -> "")

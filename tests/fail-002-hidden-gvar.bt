@@ -1,5 +1,0 @@
-var  x : int32 = 0;
-var@ y : int64 = 1;
-
-main {
-}

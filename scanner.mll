@@ -55,10 +55,9 @@ rule token = parse
     | "if"       { IF        } | "else"   { ELSE   }
     | "var"      { VAR       } | "elif"   { ELIF   }
 
-    | '.' { DOT       } | ','  { COMMA   }
-    | ':' { COLON     } | '@'  { AT      }
-    | ';' { SEMICOLON } | '='  { ASSIGN  }
-    | '_' { WILDCARD  }
+    | '.' { DOT       } | ','  { COMMA    }
+    | ':' { COLON     } | '_'  { WILDCARD }
+    | ';' { SEMICOLON } | '='  { ASSIGN   }
 
     (* Arithmetic *)
     | '+' { PLUS  } | '-' { MINUS }

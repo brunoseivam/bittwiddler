@@ -34,7 +34,7 @@ let add_to_map map id elem kind =
       | _ -> StringMap.add id elem map
 
 let add_var map = function
-    (_,id,_,_) as v -> add_to_map map id v "variable"
+    (id,_,_) as v -> add_to_map map id v "variable"
 
 let add_func map = function
     (id,_,_,_) as f -> add_to_map map id f "function"
@@ -62,7 +62,7 @@ let check_emit_fmt fname ctx emit_fmt =
         [] -> (fmt, args)
       | (STR s)::tl -> build_args (fmt ^ s) args tl
       | (VAR id)::tl -> (match find_elem ctx.variables id with
-            (_,id,ScalarType pt,_) ->
+            (id,ScalarType pt,_) ->
                 let tfmt = (match pt with
                     TInt(true,64) -> "%lu"
                   | TInt(false,64) -> "%ld"
@@ -74,7 +74,7 @@ let check_emit_fmt fname ctx emit_fmt =
                   | _ -> emit_err id (ScalarType pt)
                 ) in
                 build_args (fmt ^ tfmt) ((ScalarType pt, SId id)::args) tl
-          | (_,id,t,_) -> emit_err id t
+          | (id,t,_) -> emit_err id t
         )
     in
 
@@ -146,7 +146,7 @@ let rec check_expr ctx = function
             (ArrayType(type_of_arr_lit sel, Some(LInt(List.length sel))),
             SLArray sel)
   | Id s ->
-        let (_,_,type_,_) = find_elem ctx.variables s in (type_, SId s)
+        let (_,type_,_) = find_elem ctx.variables s in (type_, SId s)
   | EType t -> (ScalarType TType , SEType t)
   | Binop(e1,op,e2) ->
         let failure t1 t2 =
@@ -288,7 +288,7 @@ let rec check_expr ctx = function
   | _  as e -> fail ("Not implemented: " ^ string_of_expr e)
 
 and check_var ctx v =
-    let Var(hidden, id, t, e) = v in
+    let Var(id, t, e) = v in
     let (t, e) = match (t, e) with
         (* Both type and initial value, check that types are compatible *)
         (Some t, Some e) ->
@@ -312,7 +312,7 @@ and check_var ctx v =
             fail ("internal error: variable " ^ id
                   ^ " has no type and no value")
     in
-    let sv = (hidden, id, t, Some e) in
+    let sv = (id, t, Some e) in
     ({ ctx with variables = add_var ctx.variables sv }, sv)
 
 (* Returns a new context and a semantically checked block item *)
@@ -352,7 +352,7 @@ let check_dup kind where names =
 let rec add_params ctx params = match params with
     [] -> ctx
   | Param(id, type_)::tl ->
-        let sv = (false, id, type_, None) in
+        let sv = (id, type_, None) in
         let ctx = { ctx with variables = add_var ctx.variables sv } in
         add_params ctx tl
 
@@ -388,8 +388,6 @@ let check_pdecl ctx = function
         fail "Not implemented" (* TODO
         let st = STemplate(id, check_params params, check_tblock ctx body) in
         ({ ctx with templates = add_templ ctx.templates st}, st)*)
-  | GVar(Var(true,id,_,_)) ->
-        fail ("Global variables can't be hidden: " ^ id)
   | GVar(v) ->
         let (ctx, sv) = check_var ctx v in
         (ctx, SGVar(sv))
@@ -430,8 +428,8 @@ let coerce_func (sf:sfunc) =
          *     var x: int8 = 5 + 5;
          *
          * the expression 5 + 5 must have type int8 *)
-        SLVar(h, id, t, Some se) ->
-            SLVar(h, id, t, Some (coerce_sexpr t se))
+        SLVar(id, t, Some se) ->
+            SLVar(id, t, Some (coerce_sexpr t se))
 
         (* A return statement has None type. Its returned expression must have
          * the type that the enclosing function expects *)
