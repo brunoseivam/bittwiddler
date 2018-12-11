@@ -94,7 +94,11 @@ Check() {
     Run "$BITTWIDDLER" "$1" ">" "${basename}.ll" &&
     Run "$LLC" "-relocation-model=pic" "${basename}.ll" ">" "${basename}.s" &&
     Run "$CC" "-o" "${basename}.exe" "${basename}.s" "runtime.o" &&
-    Run "./${basename}.exe" ">" "${basename}.out"
+    if [ ! -f "${reffile}.in" ]; then
+        Run "./${basename}.exe" ">" "${basename}.out"
+    else
+        Run "./${basename}.exe" ">" "${basename}.out" "<" "${reffile}.in"
+    fi
     Compare ${basename}.out ${reffile}.out ${basename}.diff
 
     # Report the status and clean up the generated files
