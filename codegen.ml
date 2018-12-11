@@ -265,6 +265,13 @@ let translate prog =
             ) e1' e2' "tmp" builder in
             (builder, r)
 
+        (* Binary operation on strings *)
+      | (_, SBinop ((A.ScalarType A.TString,_) as e1, A.Plus, e2)) ->
+            let args' = List.map (build_expr ctx builder) [e1; e2] in
+            let args' = Array.of_list (List.map snd args') in
+            (builder, L.build_call __bt_str_concat args'
+                                   "__bt_str_concat" builder)
+
         (* Unary operation on integer *)
       | (A.ScalarType (A.TInt _), SUnop (uop, e)) ->
             let (builder, e') = build_expr ctx builder e in
