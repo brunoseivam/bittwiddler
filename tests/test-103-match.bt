@@ -1,0 +1,29 @@
+main {
+    var x : int16 = 0;
+
+    match x {
+        0 -> { emit("x is 0\n"); }
+        _ -> { emit("x is not 0\n"); }
+    };
+
+    var month : int32 = 12;
+
+    # monthName's type is inferred
+    var monthName = match month {
+        1  -> { "January";   }
+        2  -> { "February";  }
+        3  -> { "March";     }
+        4  -> { "April";     }
+        5  -> { "May";       }
+        6  -> { "June";      }
+        7  -> { "July";      }
+        8  -> { "August";    }
+        9  -> { "September"; }
+        10 -> { "October";   }
+        11 -> { "November";  }
+        12 -> { "December";  }
+        _  -> { "(INVALID)"; }
+    };
+
+    emit("Month #{month} is \"{monthName}\"\n");
+}

@@ -209,6 +209,14 @@ let rec check_expr ctx = function
         in
         (ty, SUnop(uop, (t, e')))
 
+    (* Match will be transformed into Cond *)
+  | Match(matching, arms) ->
+        let to_cond = function
+            (Some m, block) -> (Some(Binop(matching, Eq, m)), block)
+          | (None, block) -> (None, block)
+        in
+        check_expr ctx (Cond(List.map to_cond arms))
+
   | Cond(conds) ->
         (* conds is (expr option * block_item list) list
          *           vvvvvvvvvvv   vvvvvvvvvvvvvvv

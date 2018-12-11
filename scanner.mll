@@ -58,6 +58,7 @@ rule token = parse
     | '.' { DOT       } | ','  { COMMA   }
     | ':' { COLON     } | '@'  { AT      }
     | ';' { SEMICOLON } | '='  { ASSIGN  }
+    | '_' { WILDCARD  }
 
     (* Arithmetic *)
     | '+' { PLUS  } | '-' { MINUS }

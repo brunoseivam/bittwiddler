@@ -1,5 +1,6 @@
 %{ open Ast %}
 
+%token WILDCARD
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK LANGLE RANGLE
 %token TEMPLATE MAIN FUNCTION RETURN VAR
 %token FOR IN WHILE MATCH ARM IF ELSE ELIF
@@ -93,7 +94,8 @@ match_arms:
   | match_arms match_arm { $2 :: $1 }
 
 match_arm:
-    expr ARM block  { ($1, $3) }
+    expr ARM block     { (Some $1, $3) }
+  | WILDCARD ARM block { (None,    $3) }
 
 if_:
     IF expr block { [(Some $2, $3)] }

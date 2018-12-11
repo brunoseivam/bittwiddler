@@ -35,7 +35,7 @@ and expr =
   | EType of ptype
   | Binop of expr * op * expr
   | Unop of uop * expr
-  | Match of expr * (expr * block_item list) list
+  | Match of expr * (expr option * block_item list) list
   | Cond of (expr option * block_item list) list
   | For of string list * expr * block_item list
   | While of expr * block_item list
@@ -136,7 +136,8 @@ and string_of_block_line = function
       | Return(e) -> "return " ^ string_of_expr e ^ ";"
 
 and string_of_arm = function
-        (e, b) -> string_of_expr e ^ " -> " ^ string_of_block b
+        (Some e, b) -> string_of_expr e ^ " -> " ^ string_of_block b
+      | (None, b)   -> "_ -> " ^ string_of_block b
 
 and string_of_arms (arms) =
         String.concat "\n" (List.map string_of_arm arms)
