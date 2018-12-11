@@ -14,7 +14,6 @@ and sx =
   | SEType of ptype
   | SBinop of sexpr * op * sexpr
   | SUnop of uop * sexpr
-  | SMatch of sexpr * (sexpr * sblock_item list) list
   | SIf of sexpr * sblock_item list * sblock_item list
   | SFor of string list * sexpr * sblock_item list
   | SWhile of sexpr * sblock_item list
@@ -85,9 +84,6 @@ and string_of_sx = function
           ^ " " ^ (string_of_sexpr e2) ^ ")"
   | SUnop(uop,e) ->
           "(" ^ (string_of_uop uop) ^ " " ^ (string_of_sexpr e) ^ ")"
-  | SMatch(e,arms) ->
-          "SMatch(" ^ (string_of_sexpr e) ^ ") {\n"
-          ^ (String.concat "\n" (List.map (string_of_sarm) arms)) ^ "\n}"
   | SIf(pred,then_,else_) ->
         "SIf(" ^ (string_of_sexpr pred) ^ ") "
         ^ (string_of_sblock then_)
