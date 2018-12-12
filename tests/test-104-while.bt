@@ -1,0 +1,16 @@
+main {
+    var x:int32 = 0;
+
+    while x < 10 {
+        x = x + 1;
+    };
+
+    emit("x={x}\n");
+
+    var y:int32 = while x > 10 {
+        x = x - 1;
+        x;
+    };
+
+    emit("y={y}\n");
+}

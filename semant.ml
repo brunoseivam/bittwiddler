@@ -271,6 +271,16 @@ let rec check_expr ctx = function
         let (t, sconds) = check_conds conds in
         (t, simplify_conds t sconds)
 
+  | While(pred, block) ->
+        let pred' = match (check_expr ctx pred) with
+            (ScalarType TBool, _) as pred' -> pred'
+          | (_,sx) -> fail ("Non-boolean expression in while predicate: "
+                            ^ (string_of_sx sx))
+        in
+
+        let (t, block') = check_block ctx block in
+        (t, SWhile(pred', block'))
+
   (* When 'emit' is called, we have to build its arguments from the format
    * string *)
   | Call(id, el) -> (match id with
