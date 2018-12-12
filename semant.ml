@@ -143,7 +143,7 @@ let rec check_expr ctx = function
   | LArray el ->
         (* sel = semantically-checked expression list *)
         let sel = List.map (check_expr ctx) el in
-            (ArrayType(type_of_arr_lit sel, Some(LInt(List.length sel))),
+            (ArrayType(type_of_arr_lit sel, Some(List.length sel)),
             SLArray sel)
   | Id s ->
         let (_,type_,_) = find_elem ctx.variables s in (type_, SId s)
@@ -169,9 +169,9 @@ let rec check_expr ctx = function
                 (* String concatenation *)
                 (ScalarType(TString), _) -> t1'
                 (* Array concatenation *)
-              | (ArrayType(st1',Some(LInt(l1))),
-                 ArrayType(_,Some(LInt(l2)))) ->
-                    ArrayType(st1',Some(LInt(l1+l2)))
+              | (ArrayType(st1',Some l1),
+                 ArrayType(_,Some l2)) ->
+                    ArrayType(st1',Some(l1+l2))
                 (* Number addition *)
               | (t1',_) when is_number t1' -> t1'
               | _ -> fail (failure t1' t2'))
