@@ -61,7 +61,7 @@ typeargs:
 type_:
     typename                    { ScalarType($1)         }
   | typename LBRACK RBRACK      { ArrayType($1, None)    }
-  | typename LBRACK INT RBRACK  { ArrayType($1, Some $3) }
+  | typename LBRACK expr RBRACK { ArrayType($1, Some $3) }
 
 param:
     ID COLON type_ { Param($1, $3) }

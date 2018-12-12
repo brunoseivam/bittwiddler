@@ -44,7 +44,7 @@ and expr =
 
 and type_ =
     ScalarType of ptype
-  | ArrayType of ptype * int option
+  | ArrayType of ptype * expr option
 
 and param =
     Param of string * type_
@@ -156,10 +156,10 @@ and string_of_else = function
 
 and string_of_type = function
     ScalarType(ptype) -> string_of_ptype ptype
-  | ArrayType(ptype, n) ->
+  | ArrayType(ptype, count) ->
         string_of_ptype ptype
         ^ "["
-        ^ (match n with Some n -> string_of_int n | None -> "")
+        ^ (match count with Some(e) -> string_of_expr e | None -> "")
         ^ "]"
 and
     string_of_param = function
