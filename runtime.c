@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 /*
  *
@@ -11,42 +12,22 @@
  *
  */
 struct __bt_arr {
-    size_t n;             // Number of elements in the array
-    size_t elsz;          // Size of each element
-    char *data;           // Backing memory
+    size_t n;               // Number of elements in the array
+    size_t elsz;            // Size of each element
+    bool owns_data;         // Does this array own the data in *data?
+    void *data;             // Backing data
+    struct __bt_arr *next;  // Next array in the linked list
 };
+
 
 struct __bt_str {
-    size_t n;             // Number of characters, excluding the NUL terminator
-    struct __bt_arr *arr; // Backing array
+    size_t n;               // Number of characters, excluding NUL
+    struct __bt_arr *arr;   // Backing array
+    struct __bt_str *next;  // Next string in the linked list
 };
 
-struct __bt_arr_node {
-    struct __bt_arr *arr;
-    struct __bt_arr_node *next;
-};
-
-struct __bt_str_node {
-    struct __bt_str *str;
-    struct __bt_str_node *next;
-};
-
-static struct __bt_arr_pool {
-    size_t n;
-    struct __bt_arr_node *root;
-} __bt_arr_pool = {
-    0,
-    NULL
-};
-
-static struct __bt_str_pool {
-    size_t n;
-    struct __bt_str_node *root;
-} __bt_str_pool = {
-    0,
-    NULL
-};
-
+static struct __bt_arr *__bt_arr_ll = NULL;
+static struct __bt_str *__bt_str_ll = NULL;
 
 /*
  *
@@ -54,8 +35,8 @@ static struct __bt_str_pool {
  *
  */
 void __bt_dbg_print_arr(struct __bt_arr *a) {
-    fprintf(stderr, "[arr n=%lu elsz=%lu data=%p '%s']\n", a->n, a->elsz,
-            a->data, a->data);
+    fprintf(stderr, "[arr n=%lu elsz=%lu owns=%d data=%p]\n",
+            a->n, a->elsz, a->owns_data, a->data);
 }
 
 void __bt_dbg_print_str(struct __bt_str *s) {
@@ -63,26 +44,27 @@ void __bt_dbg_print_str(struct __bt_str *s) {
 
     if (s->arr)
         fprintf(stderr, " n=%lu elsz=%lu] %p '%s']\n", s->arr->n, s->arr->elsz,
-                s->arr->data, s->arr->data);
+                s->arr->data, (char*)s->arr->data);
     else
         fprintf(stderr, "]\n");
 }
 
 void __bt_dbg_print_arr_pool(void) {
-    fprintf(stderr, "Array Pool (%lu elements) {\n", __bt_arr_pool.n);
-    struct __bt_arr_node *a = __bt_arr_pool.root;
+    fprintf(stderr, "Array Pool {\n");
+    struct __bt_arr *a = __bt_arr_ll;
     while (a) {
-        __bt_dbg_print_arr(a->arr);
+        __bt_dbg_print_arr(a);
         a = a->next;
     }
     fprintf(stderr, "}\n");
 }
 
 void __bt_dbg_print_str_pool(void) {
-    fprintf(stderr, "String Pool (%lu elements root=%p) {\n",
-            __bt_str_pool.n, __bt_str_pool.root);
-    struct __bt_str_node *s = __bt_str_pool.root;
+    fprintf(stderr, "String Pool {\n");
+    struct __bt_str *s = __bt_str_ll;
+
     while (s) {
+        __bt_dbg_print_str(s);
         s = s->next;
     }
     fprintf(stderr, "}\n");
@@ -95,67 +77,53 @@ void __bt_dbg_print_str_pool(void) {
  */
 
 void __bt_arr_freeall(void) {
-    struct __bt_arr_pool *p = &__bt_arr_pool;
+    struct __bt_arr *next, *p = __bt_arr_ll;
 
-    struct __bt_arr_node *node = p->root;
-    while (node) {
-        struct __bt_arr_node *nxt = node->next;
-        free(node->arr);
-        free(node);
-        node=nxt;
+    while (p) {
+        next = p->next;
+
+        if (p->owns_data)
+            free(p->data);
+
+        free(p);
+        p = next;
     }
 }
 
-// Allocates a new, uninitialized BitTwiddler array
-struct __bt_arr *__bt_arr_alloc(void) {
-    struct __bt_arr_pool *p = &__bt_arr_pool;
-
+// Allocates, zero-initializes and returns a new BitTwiddler array
+struct __bt_arr *__bt_arr_new(size_t n, size_t elsz, void *data)
+{
     // Free all arrays at program exit (register this function when the first
     // array is created).
-    if (!p->n)
+    if (!__bt_arr_ll)
         atexit(__bt_arr_freeall);
 
     // Allocate space for a new array structure
     struct __bt_arr *a = calloc(1, sizeof(*a));
 
     if (!a) {
-        fprintf(stderr, "Runtime Error: %s failed to allocate new array\n",
-                __func__);
-        exit(1);
-    }
-
-    // Put it in the pool
-    struct __bt_arr_node *node = calloc(1, sizeof(*node));
-
-    if (!node) {
         fprintf(stderr, "Runtime Error: %s failed to allocate new array node\n",
                 __func__);
         exit(1);
     }
 
-    node->arr = a;
-    node->next = p->root;
-    p->root = node;
-    ++p->n;
+    // Allocate space for data
+    a->n = n;
+    a->elsz = elsz;
+    a->owns_data = data == NULL;
+    a->data = a->owns_data ? calloc(n, elsz) : data;
 
-    return a;
-}
-
-// Allocates, zero-initializes and returns a new BitTwiddler array
-struct __bt_arr *__bt_arr_new(size_t n, size_t elsz) {
-    struct __bt_arr *arr = __bt_arr_alloc();
-
-    arr->n = n;
-    arr->elsz = elsz;
-    arr->data = calloc(arr->n, arr->elsz);
-
-    if (!arr->data) {
+    if (!a->data) {
         fprintf(stderr, "Runtime Error: %s failed to allocate new array\n",
-                __func__);
+            __func__);
         exit(1);
     }
 
-    return arr;
+    // Put it in the pool
+    a->next = __bt_arr_ll;
+    __bt_arr_ll = a;
+
+    return a;
 }
 
 // Resizes an array
@@ -185,24 +153,20 @@ char *__bt_arr_get(struct __bt_arr *arr) {
 // Frees all BitTwiddler strings, runs at program exit
 // Backing arrays will be freed by __bt_arr_freeall
 void __bt_str_freeall(void) {
-    struct __bt_str_pool *p = &__bt_str_pool;
+    struct __bt_str *next, *p = __bt_str_ll;
 
-    struct __bt_str_node *node = p->root;
-    while (node) {
-        struct __bt_str_node *nxt = node->next;
-        free(node->str);
-        free(node);
-        node=nxt;
+    while (p) {
+        next = p->next;
+        free(p);
+        p = next;
     }
 }
 
-// Allocates a new, uninitialized BitTwiddler string
-struct __bt_str *__bt_str_alloc(void) {
-    struct __bt_str_pool *p = &__bt_str_pool;
-
+// Allocates, initializes and returns a new BitTwiddler string
+struct __bt_str *__bt_str_new(const char *val) {
     // Free all strings at program exit (register this function when the first
     // string is created).
-    if (!p->n)
+    if (!__bt_str_ll)
         atexit(__bt_str_freeall);
 
     // Allocate space for a new string structure
@@ -215,41 +179,24 @@ struct __bt_str *__bt_str_alloc(void) {
     }
 
     // Put it in the pool
-    struct __bt_str_node *node = calloc(1, sizeof(*node));
+    s->next = __bt_str_ll;
+    __bt_str_ll = s;
 
-    if (!node) {
-        fprintf(stderr, "Runtime Error: %s failed to allocate new array node\n",
-                __func__);
-        exit(1);
+    if (val) {
+        size_t n = strlen(val);
+        s->n = n;
+        s->arr = __bt_arr_new(n + 1, 1, (void*) val);
     }
-
-    node->str = s;
-    node->next = p->root;
-    p->root = node;
-    ++p->n;
 
     return s;
 }
 
-// Allocates, initializes and returns a new BitTwiddler string
-struct __bt_str *__bt_str_new(const char *s) {
-    struct __bt_str *ns = __bt_str_alloc();
-
-    ns->n = strlen(s);
-    ns->arr = __bt_arr_new(ns->n + 1, sizeof(char));
-
-    // Fill the new string with the passed-in data
-    strcpy(ns->arr->data, s);
-
-    return ns;
-}
-
 // Concatenates two BitTwiddler strings into a third, new string
 struct __bt_str *__bt_str_concat(struct __bt_str *s1, struct __bt_str *s2) {
-    struct __bt_str *s = __bt_str_alloc();
+    struct __bt_str *s = __bt_str_new(NULL);
 
     s->n = s1->n + s2->n;
-    s->arr = __bt_arr_new(s->n + 1, sizeof(char));
+    s->arr = __bt_arr_new(s->n + 1, sizeof(char), NULL);
 
     strcpy(s->arr->data, s1->arr->data);
     strcat(s->arr->data, s2->arr->data);
@@ -297,10 +244,7 @@ struct __bt_str *__bt_str_read(void) {
         }
     }
 
-    // Not very efficient (there's a copy involved)
-    struct __bt_str *s = __bt_str_new(buf);
-    free(buf);
-    return s;
+    return __bt_str_new(buf);
 }
 
 const char *__bt_str_get(struct __bt_str *s) {
