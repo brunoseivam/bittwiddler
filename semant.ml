@@ -103,7 +103,7 @@ let check_type_compat t1 t2 =
         (ScalarType(st1), ScalarType(st2)) ->
             let (st1', st2') = upcast st1 st2 in
                 (ScalarType(st1'), ScalarType(st2'))
-      | (ArrayType(st1,l1), ArrayType(st2,l2)) when l1=l2 ->
+      | (ArrayType(st1,l1), ArrayType(st2,l2)) ->
             let (st1', st2') = upcast st1 st2 in
                 (ArrayType(st1',l1), ArrayType(st2',l2))
       | _ -> fail failure
@@ -409,6 +409,11 @@ let rec check_pdecls ctx = function
 let coerce_func (sf:sfunc) =
     let (id, ftype, sparams, body) = sf in
 
+    let coerce_fail e t ty =
+        fail ("can't coerce expression " ^ (string_of_sx e) ^ " from type "
+              ^ (string_of_type t) ^ " to type " ^ (string_of_type ty))
+    in
+
     let rec coerce_sexpr ty (t,e) = match (ty, t) with
         (ScalarType (TInt _), ScalarType TAInt)
       | (ScalarType (TFloat _), ScalarType TAFloat) ->
@@ -423,11 +428,14 @@ let coerce_func (sf:sfunc) =
               | SIf(pred, then_, else_) ->
                     (ty, SIf(pred, coerce_sblock ty then_,
                              coerce_sblock ty else_))
-              | _ ->
-                    fail ("can't coerce expression "
-                          ^ (string_of_sx e) ^ " from type "
-                          ^ (string_of_type t) ^ " to type "
-                          ^ (string_of_type ty))
+              | _ -> coerce_fail e t ty
+            )
+      | (ArrayType(et, _), _) ->
+            (match e with
+                SLArray el -> (ty,
+                    SLArray(List.map (coerce_sexpr (ScalarType et)) el)
+                )
+              | _ -> coerce_fail e t ty
             )
       | _ -> (t, e)
 

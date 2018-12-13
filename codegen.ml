@@ -81,17 +81,16 @@ let translate prog =
 
     (* Get LLVM type from BitTwiddler type *)
     let ltype_of_type = function
-        A.ScalarType(t) -> (match t with
-            A.TAInt -> i32_t
-          | A.TInt(_,w) -> L.integer_type context w
+        A.ScalarType t -> (match t with
+            A.TInt(_,w) -> L.integer_type context w
           | A.TFloat(32) -> f32_t
-          | A.TAFloat | A.TFloat(64) -> f64_t
+          | A.TFloat(64) -> f64_t
           | A.TBool -> i1_t
           | A.TNone -> void_t
           | A.TString -> L.pointer_type __bt_str_t
           | _ -> raise (Failure ("type not implemented " ^ A.string_of_ptype t))
         )
-      | _ as t -> raise (Failure ("type not implemented " ^ A.string_of_type t))
+      | A.ArrayType _ -> L.pointer_type __bt_arr_t
     in
 
     (* Create an alloca instruction in the entry block of the function *)
@@ -143,7 +142,7 @@ let translate prog =
     let __bt_arr_new =
         let __bt_arr_new_t =
             L.function_type (L.pointer_type __bt_arr_t) [|
-                i64_t; i64_t
+                i64_t; i64_t; L.pointer_type i8_t
             |]
         in
         L.declare_function "__bt_arr_new" __bt_arr_new_t the_module
@@ -178,24 +177,44 @@ let translate prog =
 
     (* Expression builder *)
     let rec build_expr ctx builder = function
-        (t, SLInt i) ->
-            (builder, L.const_int (ltype_of_type t) i)
-      | (t, SLFloat f) ->
-            (builder, L.const_float (ltype_of_type t) f)
+        (t, SLInt i) -> (builder, L.const_int (ltype_of_type t) i)
+      | (t, SLFloat f) -> (builder, L.const_float (ltype_of_type t) f)
+      | (_, SLBool b) -> (builder, L.const_int i1_t (if b then 1 else 0))
+
       | (_, SLString s) ->
             let gptr = L.build_global_stringptr s "" builder in
             let s =
                 L.build_call __bt_str_new [| gptr |] "__bt_str_new" builder
             in
             (builder, s)
-      | (_, SLBool b) ->
-            (builder, L.const_int i1_t (if b then 1 else 0))
-      | (_, SLArray _) ->
-            raise (Failure "arrays not implemented yet")
-      | (A.ScalarType _, SId id) ->
+
+      | (A.ArrayType(t,_), SLArray el) ->
+            let lt = ltype_of_type (A.ScalarType t) in
+            let n = List.length el in
+
+            (* builds list of built exprs *)
+            let rec to_lv builder = function
+                [] -> []
+              | hd::tl ->
+                    let (builder, le) = build_expr ctx builder hd in
+                    le::(to_lv builder tl)
+            in
+
+            let v = L.define_global "lit_arr" (L.const_array
+                (L.array_type lt n) (Array.of_list (to_lv builder el))
+            ) the_module in
+
+            let v_ptr = L.const_pointercast v (L.pointer_type i8_t) in
+
+            let a =
+                L.build_call __bt_arr_new [|
+                    L.const_int i64_t n; L.size_of lt; v_ptr
+                |] "__bt_arr_new" builder
+            in
+            (builder, a)
+
+      | (_, SId id) ->
             (builder, L.build_load (lookup_var id ctx) id builder)
-      | (_, SId _) ->
-            raise (Failure "arrays not implemented yet")
 
         (* Assignment *)
       | (A.ScalarType _, SBinop ((_, SId id), A.Assign, e)) ->
@@ -479,12 +498,9 @@ let translate prog =
     (* Helper: 'LLVM return' from function type *)
     let ret_of_type t = match t with
         A.ScalarType pt -> (match pt with
-            A.TAInt | A.TInt(_,_) ->
-                L.build_ret (L.const_int (ltype_of_type t) 0)
-          | A.TAFloat | A.TFloat(_) ->
-                L.build_ret (L.const_float (ltype_of_type t) 0.0)
-          | A.TNone ->
-                L.build_ret_void
+            A.TInt(_,_) -> L.build_ret (L.const_int (ltype_of_type t) 0)
+          | A.TFloat(_) -> L.build_ret (L.const_float (ltype_of_type t) 0.0)
+          | A.TNone -> L.build_ret_void
           | _ -> raise (Failure ("ret type not implemented " ^ A.string_of_ptype pt))
         )
       | _ -> raise (Failure ("ret type not implemented " ^ A.string_of_type t))
