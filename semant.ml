@@ -283,17 +283,28 @@ let rec check_expr ctx = function
 
   (* When 'emit' is called, we have to build its arguments from the format
    * string *)
-  | Call(id, el) -> (match id with
-        "emit" | "print" | "fatal" ->
-            (match el with
-                [(LString s)] ->
-                    (ScalarType TNone, SCall("__bt_emit",
-                                             check_emit_fmt id ctx s))
-              | _ -> fail ("'" ^ id ^ "' requires a single literal "
-                                     ^ "string argument"))
-      | _ ->
-            let (_,type_,_,_) = find_elem ctx.functions id in
-            (type_, SCall(id, List.map (check_expr ctx) el)))
+  | Call(id, el) when id="emit" || id="print" || id="fatal" -> (match el with
+        [(LString s)] ->
+            (ScalarType TNone, SCall("__bt_emit", check_emit_fmt id ctx s))
+      | _ -> fail ("'" ^ id ^ "' requires a single literal string argument")
+    )
+
+  (* 'len' is expected to be applied to arrays or strings only *)
+  | Call(id, el) when id="len" -> (match el with
+        [e] ->
+            let (t,e') = check_expr ctx e in
+            let fname = match t with
+                ScalarType TString | ArrayType _ -> "__bt_len"
+              | _ -> fail (id ^ "can't be applied to type: "
+                           ^ string_of_type t)
+            in
+            (ScalarType(TInt(true,64)), SCall(fname, [(t,e')]))
+      | _ -> fail ("len requires a single array or string argument")
+    )
+
+  | Call(id, el) ->
+        let (_,type_,_,_) = find_elem ctx.functions id in
+        (type_, SCall(id, List.map (check_expr ctx) el))
 
   | _  as e -> fail ("Not implemented: " ^ string_of_expr e)
 

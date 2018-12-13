@@ -71,11 +71,11 @@ let translate prog =
     and void_t = L.void_type context in
 
     let __bt_arr_t = L.struct_type context [|
-        i64_t; i64_t; L.pointer_type i8_t
+        i64_t; i64_t; i8_t; L.pointer_type i8_t; L.pointer_type i8_t
     |] in
 
     let __bt_str_t = L.struct_type context [|
-        i64_t; L.pointer_type __bt_arr_t
+        i64_t; L.pointer_type __bt_arr_t; L.pointer_type i8_t
     |] in
 
 
@@ -164,15 +164,6 @@ let translate prog =
             |]
         in
         L.declare_function "__bt_str_concat" __bt_str_concat_t the_module
-    in
-
-    let __bt_str_get =
-        let __bt_str_get_t =
-            L.function_type (L.pointer_type i8_t) [|
-                L.pointer_type __bt_str_t;
-            |]
-        in
-        L.declare_function "__bt_str_get" __bt_str_get_t the_module
     in
 
     (* Expression builder *)
@@ -391,6 +382,11 @@ let translate prog =
             let args' = Array.of_list (List.map snd args') in
             (builder, L.build_call __bt_emit args' "" builder)
 
+      | (_, SCall("__bt_len", [e])) ->
+            let (builder, e') = build_expr ctx builder e in
+            let n = L.build_struct_gep e' 0 "n" builder in
+            (builder, L.build_load n "len" builder)
+
       | (A.ScalarType t, SCall("__bt_read", _)) ->
             let f = match t with
                 A.TInt(_,8)  -> __bt_read_i8
@@ -429,7 +425,11 @@ let translate prog =
     and build_expr_s ctx builder = function
         (A.ScalarType A.TString, _) as e ->
             let (builder, e') = build_expr ctx builder e in
-            (builder, L.build_call __bt_str_get [| e' |] "__bt_str_get" builder)
+            let arr_ptr = L.build_struct_gep e' 1 "arr_ptr" builder in
+            let arr = L.build_load arr_ptr "arr" builder in
+            let data_ptr = L.build_struct_gep arr 3 "data_ptr" builder in
+            let data = L.build_load data_ptr "data" builder in
+            (builder, data)
       | _ as e -> build_expr ctx builder e
 
     (*
