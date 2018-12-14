@@ -20,10 +20,10 @@ type ptype =
 and var =
     Var of string * type_ option * expr option
 
-and block_item =
+and stmt =
     LVar of var (* local variable declaration *)
-  | For of string list * expr * block_item list
-  | While of expr * block_item list
+  | For of string list * expr * stmt list
+  | While of expr * stmt list
   | Expr of expr
   | Return of expr
 
@@ -37,8 +37,8 @@ and expr =
   | EType of ptype
   | Binop of expr * op * expr
   | Unop of uop * expr
-  | Match of expr * (expr option * block_item list) list
-  | Cond of (expr option * block_item list) list
+  | Match of expr * (expr option * stmt list) list
+  | Cond of (expr option * stmt list) list
   | Call of string * expr list
   | TCall of ptype * expr list
 
@@ -55,11 +55,11 @@ type template_item =
   | TExpr of expr
 
 type program_decl =
-    Func of string * type_ * param list * block_item list
+    Func of string * type_ * param list * stmt list
   | Template of string * param list * template_item list
   | GVar of var (* global variable *)
 
-type program = Program of program_decl list * block_item list
+type program = Program of program_decl list * stmt list
 
 (* Pretty-printing functions *)
 

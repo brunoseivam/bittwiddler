@@ -397,9 +397,9 @@ let translate prog =
       | _ as e -> build_expr ctx builder e
 
     (*
-     * Build an sblock_item
+     * Build an sstmt
      *)
-    and build_block_item ctx builder = function
+    and build_stmt ctx builder = function
         SLVar(id, type_, Some e) ->
             (match ctx.cur_func with
                 (* Allocate var on the stack and add it to the context *)
@@ -447,7 +447,7 @@ let translate prog =
             (None, ctx, L.builder_at_end context merge_bb)
       | _ as i ->
               raise (Failure ("can't build block item "
-                              ^ (string_of_sblock_item i)))
+                              ^ (string_of_sstmt i)))
 
     (*
      * Build a block
@@ -457,7 +457,7 @@ let translate prog =
             builder
       | [item] ->
             (* Store the value of the last item in res *)
-            let (lval, _, builder) = build_block_item ctx builder item in
+            let (lval, _, builder) = build_stmt ctx builder item in
             let _ = match (res, lval) with
                 (Some r, Some v) -> ignore(L.build_store v r builder)
               | (None, _) -> ()
@@ -466,7 +466,7 @@ let translate prog =
             in
             builder
       | hd::tl ->
-            let (_, ctx, builder) = build_block_item ctx builder hd in
+            let (_, ctx, builder) = build_stmt ctx builder hd in
             build_block ctx builder res tl
     in
 

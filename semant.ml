@@ -218,7 +218,7 @@ let rec check_expr ctx = function
         check_expr ctx (Cond(List.map to_cond arms))
 
   | Cond(conds) ->
-        (* conds is (expr option * block_item list) list
+        (* conds is (expr option * stmt list) list
          *           vvvvvvvvvvv   vvvvvvvvvvvvvvv
          *            condition         block
          *
@@ -328,7 +328,7 @@ and check_var ctx v =
     ({ ctx with variables = add_var ctx.variables sv }, sv)
 
 (* Returns a new context and a semantically checked block item *)
-and check_block_item ctx = function
+and check_stmt ctx = function
     LVar(v) -> let (ctx, sv) = check_var ctx v in (ctx, SLVar(sv))
   | Expr(e) -> (ctx, SExpr(check_expr ctx e))
   | Return(e) -> (ctx, SReturn(check_expr ctx e))
@@ -361,13 +361,13 @@ and check_block_item ctx = function
 and check_block ctx = function
     [] -> (ScalarType TNone, [])
   | [item] ->
-        let (_, item) = check_block_item ctx item in
+        let (_, item) = check_stmt ctx item in
         (match item with
             SLVar _ | SReturn _ | SWhile _ -> ScalarType TNone
           | SExpr(t, _) -> t)
         , [item]
   | hd::tl ->
-        let (ctx, item) = check_block_item ctx hd in
+        let (ctx, item) = check_stmt ctx hd in
         let (t, block) = check_block ctx tl in
         (t, item::block)
 
@@ -464,7 +464,7 @@ let coerce_func (sf:sfunc) =
             )
       | _ -> (t, e)
 
-    and coerce_sblock_item ty = function
+    and coerce_sstmt ty = function
         (* A variable declaration statement has None type. Its value expression
          * must be coerced to the variable's type. For example, in:
          *
@@ -490,10 +490,10 @@ let coerce_func (sf:sfunc) =
     and coerce_sblock ty = function
         [] -> []
         (* The last item in a block confers the block its type *)
-      | [item] -> [coerce_sblock_item ty item]
+      | [item] -> [coerce_sstmt ty item]
       | hd::tl ->
             let hd =
-               match hd with SExpr(_) -> hd | _ -> coerce_sblock_item ty hd
+               match hd with SExpr(_) -> hd | _ -> coerce_sstmt ty hd
             in
             hd::(coerce_sblock ty tl)
     in

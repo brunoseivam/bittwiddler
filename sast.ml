@@ -14,16 +14,16 @@ and sx =
   | SEType of ptype
   | SBinop of sexpr * op * sexpr
   | SUnop of uop * sexpr
-  | SIf of sexpr * sblock_item list * sblock_item list
+  | SIf of sexpr * sstmt list * sstmt list
   | SCall of string * sexpr list
   | STCall of ptype * sexpr list
 
-and sblock_item =
+and sstmt =
     SLVar of svar (* local variable declaration *)
   | SExpr of sexpr
   | SReturn of sexpr
-  | SFor of string list * sexpr * sblock_item list
-  | SWhile of sexpr * sblock_item list
+  | SFor of string list * sexpr * sstmt list
+  | SWhile of sexpr * sstmt list
 
 and svar = string * type_ * sexpr option
 
@@ -34,7 +34,7 @@ type stemplate_item =
   | STField of sexpr * sexpr option * sexpr option
   | STExpr of sexpr
 
-type sfunc = string * type_ * sparam list * sblock_item list
+type sfunc = string * type_ * sparam list * sstmt list
 type stempl = string * sparam list * stemplate_item list
 
 type sprogram_decl =
@@ -46,7 +46,7 @@ type sprogram = sprogram_decl list
 
 (* Pretty-printing *)
 
-let rec string_of_stblock_item = function
+let rec string_of_ststmt = function
     SField(v) -> (string_of_svar v) ^ ";"
   | STField(e1, e2, e3) ->
         let e1 = (string_of_sexpr e1) in
@@ -56,9 +56,9 @@ let rec string_of_stblock_item = function
   | STExpr(e) -> (string_of_sexpr e) ^ ";"
 
 and string_of_stblock b =
-    "{\n" ^ (String.concat "\n" (List.map string_of_stblock_item b))
+    "{\n" ^ (String.concat "\n" (List.map string_of_ststmt b))
 
-and string_of_sblock_item = function
+and string_of_sstmt = function
     SLVar(v) -> (string_of_svar v) ^ ";"
   | SExpr(e) -> (string_of_sexpr e) ^ ";"
   | SReturn(e) -> "SReturn(" ^ (string_of_sexpr e) ^ ");"
@@ -69,7 +69,7 @@ and string_of_sblock_item = function
           "SWhile(" ^ (string_of_sexpr e) ^ ")" ^ string_of_sblock b
 
 and string_of_sblock b =
-    "{\n" ^ (String.concat "\n" (List.map string_of_sblock_item b)) ^ "}"
+    "{\n" ^ (String.concat "\n" (List.map string_of_sstmt b)) ^ "}"
 
 and string_of_sarm arm =
     let (e, block) = arm in
