@@ -400,30 +400,39 @@ let translate prog =
      * Build an sstmt
      *)
     and build_stmt ctx builder = function
-        SLVar(id, type_, Some e) ->
+        SLVar(id, type_, e) ->
             (match ctx.cur_func with
                 (* Allocate var on the stack and add it to the context *)
                 Some f ->
                     let lv = create_entry_block_alloca f id type_ in
                     let ctx = add_var ctx id lv in
-                    let (builder, e') = build_expr ctx builder e in
-                    ignore(L.build_store e' lv builder);
+                    let builder = match e with
+                        Some e ->
+                            let (builder, e') = build_expr ctx builder e in
+                            ignore(L.build_store e' lv builder);
+                            builder
+                      | None ->
+                            builder
+                    in
                     (None, ctx, builder)
               | None ->
                     raise (Failure "internal error: local var without stack")
             )
-      | SExpr(e) ->
+
+      | SExpr e ->
             let (builder, e') = build_expr ctx builder e in
             let lval = match e with
                 (A.ScalarType A.TNone, _) -> None
               | _ -> Some e'
             in
             (lval, ctx, builder)
-      | SReturn(e) ->
+
+      | SReturn e ->
               let (builder, e') = build_expr ctx builder e in
               ignore(L.build_ret e' builder);
               (None, ctx, builder)
-      | SWhile (pred, body) ->
+
+      | SWhile(pred, body) ->
             let the_function = match ctx.cur_func with
                 Some f -> f
               | None -> raise (Failure "internal error: no current function")
@@ -445,9 +454,59 @@ let translate prog =
             let merge_bb = L.append_block context "merge" the_function in
             let _ = L.build_cond_br bool_val body_bb merge_bb pred_builder in
             (None, ctx, L.builder_at_end context merge_bb)
-      | _ as i ->
-              raise (Failure ("can't build block item "
-                              ^ (string_of_sstmt i)))
+
+        (* A for statement is compiled, conceptually, to:
+         *
+         *     var idx:uint64 = 0;
+         *     var item:item_t;
+         *     var n:uint64 = len(e);
+         *
+         *     while idx < n {
+         *         item = e[idx];
+         *         ... block ...
+         *         idx = idx + 1;
+         *     }
+         *)
+      | SFor(idx_sv, item_sv, e, block) ->
+            (* Declare and initialize relevant, new variables *)
+            let size_t = A.ScalarType(A.TInt(true,64)) in
+            let (idx, _, _) = idx_sv in
+            let (_, item_t, _) = item_sv in
+            let len_sv = ("__len", size_t, Some (size_t, SCall("len", [e]))) in
+
+            (* Read item from array: item = e[idx] *)
+            let pre_block:sstmt = SExpr(A.ScalarType A.TNone, SBinop(
+                (item_t, SId "__len"),
+                A.Assign,
+                (item_t, SBinop(e, A.Subscr, (size_t, SId idx)))
+            )) in
+
+            (* Increment index: idx = idx + 1*)
+            let post_block :sstmt = SExpr(A.ScalarType A.TNone, SBinop(
+                (size_t, SId idx),
+                A.Assign,
+                (size_t, SBinop((size_t, SId idx),
+                                A.Plus,
+                                (size_t, SLInt 1)))
+            )) in
+
+            (* Build while loop: while(idx < len) { ... } *)
+            let while_ = SWhile(
+                (A.ScalarType A.TBool, SBinop(
+                    (size_t, SId idx),
+                    A.Lt,
+                    (size_t, SId "__len"))),
+               [pre_block] @ block @ [post_block]
+            ) in
+
+            (* Generate the code *)
+            let (_, _, builder) = List.fold_left (
+                fun (_, lctx, builder) stmt -> build_stmt lctx builder stmt
+            ) (None, ctx, builder)
+            [SLVar idx_sv; SLVar item_sv; SLVar len_sv; while_] in
+
+            (* Return old context (don't keep newly created vars) *)
+            (None, ctx, builder)
 
     (*
      * Build a block

@@ -114,16 +114,6 @@ opt_else:
 conditional:
     if_ opt_elseifs opt_else { Cond($1 @ (List.rev $2) @ $3) }
 
-forvars:
-    ID                { [$1]   }
-  | forvars COMMA ID  { $3::$1 }
-
-for_:
-    FOR forvars IN expr block { For($2, $4, $5) }
-
-while_:
-    WHILE expr block { While($2, $3) }
-
 expr_list:
     /* empty */          { []     }
   | expr                 { [$1]   }
@@ -172,11 +162,11 @@ expr:
   | typename { EType($1) }
 
 block_stmt:
-    expr SEMICOLON        { Expr($1)   }
-  | var                   { LVar($1)   }
-  | RETURN expr SEMICOLON { Return($2) }
-  | for_                  { $1         }
-  | while_                { $1         }
+    expr SEMICOLON                { Expr($1)         }
+  | var                           { LVar($1)         }
+  | RETURN expr SEMICOLON         { Return($2)       }
+  | FOR ID COMMA ID IN expr block { For($2,$4,$6,$7) }
+  | WHILE expr block              { While($2,$3)     }
 
 block_stmts:
     block_stmt             { [$1] }

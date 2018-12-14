@@ -22,7 +22,7 @@ and sstmt =
     SLVar of svar (* local variable declaration *)
   | SExpr of sexpr
   | SReturn of sexpr
-  | SFor of string list * sexpr * sstmt list
+  | SFor of svar * svar * sexpr * sstmt list
   | SWhile of sexpr * sstmt list
 
 and svar = string * type_ * sexpr option
@@ -62,8 +62,11 @@ and string_of_sstmt = function
     SLVar(v) -> (string_of_svar v) ^ ";"
   | SExpr(e) -> (string_of_sexpr e) ^ ";"
   | SReturn(e) -> "SReturn(" ^ (string_of_sexpr e) ^ ");"
-  | SFor(ids, e, b) ->
-          "SFor( (" ^ (String.concat "," ids) ^ ") in " ^ (string_of_sexpr e)
+  | SFor(idx_sv, item_sv, e, b) ->
+          "SFor ("
+          ^ string_of_svar idx_sv ^ ","
+          ^ string_of_svar item_sv ^ ") in "
+          ^ string_of_sexpr e
           ^ string_of_sblock b
   | SWhile(e, b) ->
           "SWhile(" ^ (string_of_sexpr e) ^ ")" ^ string_of_sblock b

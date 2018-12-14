@@ -342,19 +342,24 @@ and check_stmt ctx = function
         let (_, block') = check_block ctx block in
         (ctx, SWhile(pred', block'))
 
-  | For _ -> fail ("For statement not implemented yet")
-(*  | For([i, item], e, block) ->
+  | For(idx, item, e, block) ->
         let (t, e') = check_expr ctx e in
+        let idx_t = ScalarType(TInt(true,64)) in
         let item_t = match t with
             ArrayType(pt,_) -> ScalarType pt
           | ScalarType TString -> t
           | _ -> fail ("Can't iterate over expression of type "
                        ^ string_of_type t)
         in
+        let idx_svar = (idx, idx_t, Some (idx_t, SLInt(0))) in
+        let item_svar = (item, item_t, None) in
+        let lvars = List.fold_left (
+            fun vars sv -> add_var vars sv
+        ) ctx.variables [idx_svar; item_svar] in
+        let lctx = { ctx with variables = lvars } in
+        let (_, block') = check_block lctx block in
+        (ctx, SFor(idx_svar, item_svar, (t, e'), block'))
 
-
-
-        ()*)
 
 (* Returns the type of the block (type of its last item) and a list of
  * semantically-checked block items *)
@@ -363,7 +368,7 @@ and check_block ctx = function
   | [item] ->
         let (_, item) = check_stmt ctx item in
         (match item with
-            SLVar _ | SReturn _ | SWhile _ -> ScalarType TNone
+            SLVar _ | SReturn _ | SWhile _ | SFor _ -> ScalarType TNone
           | SExpr(t, _) -> t)
         , [item]
   | hd::tl ->
@@ -517,7 +522,8 @@ let check prog =
 
     (* Add built-in functions and main to list of program declarations *)
     let built_in_funcs = [
-        Func("emit", ScalarType(TNone), [], []);
+        Func("emit", ScalarType TNone, [], []);
+        Func("len", ScalarType(TInt(true,64)), [], []);
     ]
     and main_func =
         Func("main", ScalarType(TInt(false,32)), [], main @ [Return(LInt(0))])

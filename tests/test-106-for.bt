@@ -1,0 +1,7 @@
+main {
+    var one_to_five:uint16[] = [1, 2, 3, 4, 5];
+
+    for i, v in one_to_five {
+        emit("one_to_five[{i}]: {v}\n");
+    }
+}

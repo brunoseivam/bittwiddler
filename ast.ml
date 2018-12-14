@@ -22,7 +22,7 @@ and var =
 
 and stmt =
     LVar of var (* local variable declaration *)
-  | For of string list * expr * stmt list
+  | For of string * string * expr * stmt list
   | While of expr * stmt list
   | Expr of expr
   | Return of expr
@@ -126,8 +126,8 @@ and string_of_block = function
 and string_of_block_line = function
     LVar(v) -> string_of_var v ^ ";"
   | While(e, b) -> "while " ^ string_of_expr e ^ string_of_block b
-  | For(ids, e, b) ->
-        "for " ^ String.concat "," ids ^ " in " ^ string_of_expr e ^ " "
+  | For(id1, id2, e, b) ->
+        "for " ^ id1 ^ ", " ^ id2 ^ " in " ^ string_of_expr e ^ " "
         ^ string_of_block b
   | Expr(e) -> string_of_expr e ^ ";"
   | Return(e) -> "return " ^ string_of_expr e ^ ";"
