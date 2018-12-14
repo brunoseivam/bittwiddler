@@ -271,15 +271,6 @@ let rec check_expr ctx = function
         let (t, sconds) = check_conds conds in
         (t, simplify_conds t sconds)
 
-  | While(pred, block) ->
-        let pred' = match (check_expr ctx pred) with
-            (ScalarType TBool, _) as pred' -> pred'
-          | (_,sx) -> fail ("Non-boolean expression in while predicate: "
-                            ^ (string_of_sx sx))
-        in
-
-        let (t, block') = check_block ctx block in
-        (t, SWhile(pred', block'))
 
   (* When 'emit' is called, we have to build its arguments from the format
    * string *)
@@ -341,6 +332,29 @@ and check_block_item ctx = function
     LVar(v) -> let (ctx, sv) = check_var ctx v in (ctx, SLVar(sv))
   | Expr(e) -> (ctx, SExpr(check_expr ctx e))
   | Return(e) -> (ctx, SReturn(check_expr ctx e))
+  | While(pred, block) ->
+        let pred' = match (check_expr ctx pred) with
+            (ScalarType TBool, _) as pred' -> pred'
+          | (_,sx) -> fail ("Non-boolean expression in while predicate: "
+                            ^ (string_of_sx sx))
+        in
+
+        let (_, block') = check_block ctx block in
+        (ctx, SWhile(pred', block'))
+
+  | For _ -> fail ("For statement not implemented yet")
+(*  | For([i, item], e, block) ->
+        let (t, e') = check_expr ctx e in
+        let item_t = match t with
+            ArrayType(pt,_) -> ScalarType pt
+          | ScalarType TString -> t
+          | _ -> fail ("Can't iterate over expression of type "
+                       ^ string_of_type t)
+        in
+
+
+
+        ()*)
 
 (* Returns the type of the block (type of its last item) and a list of
  * semantically-checked block items *)
@@ -349,7 +363,7 @@ and check_block ctx = function
   | [item] ->
         let (_, item) = check_block_item ctx item in
         (match item with
-            SLVar(_) | SReturn(_) -> ScalarType TNone
+            SLVar _ | SReturn _ | SWhile _ -> ScalarType TNone
           | SExpr(t, _) -> t)
         , [item]
   | hd::tl ->

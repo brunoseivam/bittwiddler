@@ -15,8 +15,6 @@ and sx =
   | SBinop of sexpr * op * sexpr
   | SUnop of uop * sexpr
   | SIf of sexpr * sblock_item list * sblock_item list
-  | SFor of string list * sexpr * sblock_item list
-  | SWhile of sexpr * sblock_item list
   | SCall of string * sexpr list
   | STCall of ptype * sexpr list
 
@@ -24,6 +22,8 @@ and sblock_item =
     SLVar of svar (* local variable declaration *)
   | SExpr of sexpr
   | SReturn of sexpr
+  | SFor of string list * sexpr * sblock_item list
+  | SWhile of sexpr * sblock_item list
 
 and svar = string * type_ * sexpr option
 
@@ -62,6 +62,11 @@ and string_of_sblock_item = function
     SLVar(v) -> (string_of_svar v) ^ ";"
   | SExpr(e) -> (string_of_sexpr e) ^ ";"
   | SReturn(e) -> "SReturn(" ^ (string_of_sexpr e) ^ ");"
+  | SFor(ids, e, b) ->
+          "SFor( (" ^ (String.concat "," ids) ^ ") in " ^ (string_of_sexpr e)
+          ^ string_of_sblock b
+  | SWhile(e, b) ->
+          "SWhile(" ^ (string_of_sexpr e) ^ ")" ^ string_of_sblock b
 
 and string_of_sblock b =
     "{\n" ^ (String.concat "\n" (List.map string_of_sblock_item b)) ^ "}"
@@ -88,11 +93,6 @@ and string_of_sx = function
         "SIf(" ^ (string_of_sexpr pred) ^ ") "
         ^ (string_of_sblock then_)
         ^ "SElse " ^ (string_of_sblock else_)
-  | SFor(ids, e, b) ->
-          "SFor( (" ^ (String.concat "," ids) ^ ") in " ^ (string_of_sexpr e)
-          ^ string_of_sblock b
-  | SWhile(e, b) ->
-          "SWhile(" ^ (string_of_sexpr e) ^ ")" ^ string_of_sblock b
   | SCall(id,el) ->
           "SCall(" ^ id ^ ", params=["
           ^ (String.concat ", " (List.map string_of_sexpr el)) ^ "])"

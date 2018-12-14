@@ -22,6 +22,8 @@ and var =
 
 and block_item =
     LVar of var (* local variable declaration *)
+  | For of string list * expr * block_item list
+  | While of expr * block_item list
   | Expr of expr
   | Return of expr
 
@@ -37,8 +39,6 @@ and expr =
   | Unop of uop * expr
   | Match of expr * (expr option * block_item list) list
   | Cond of (expr option * block_item list) list
-  | For of string list * expr * block_item list
-  | While of expr * block_item list
   | Call of string * expr list
   | TCall of ptype * expr list
 
@@ -111,13 +111,6 @@ and string_of_expr = function
           ^ string_of_arms arms
           ^ "\n}"
   | Cond(conds) -> string_of_cond conds
-  | For(ids, e, b) ->
-        "for "
-        ^ String.concat "," ids
-        ^ " in "
-        ^ string_of_expr e ^ " "
-        ^ string_of_block b
-  | While(e, b) -> "while " ^ string_of_expr e ^ string_of_block b
   | Call(id, exprs) ->
         id ^ "(" ^ String.concat "," (List.map string_of_expr exprs) ^ ")"
   | TCall(ptype,exprs) ->
@@ -131,9 +124,13 @@ and string_of_block = function
             ^ "\n}"
 
 and string_of_block_line = function
-        LVar(v) -> string_of_var v ^ ";"
-      | Expr(e) -> string_of_expr e ^ ";"
-      | Return(e) -> "return " ^ string_of_expr e ^ ";"
+    LVar(v) -> string_of_var v ^ ";"
+  | While(e, b) -> "while " ^ string_of_expr e ^ string_of_block b
+  | For(ids, e, b) ->
+        "for " ^ String.concat "," ids ^ " in " ^ string_of_expr e ^ " "
+        ^ string_of_block b
+  | Expr(e) -> string_of_expr e ^ ";"
+  | Return(e) -> "return " ^ string_of_expr e ^ ";"
 
 and string_of_arm = function
         (Some e, b) -> string_of_expr e ^ " -> " ^ string_of_block b

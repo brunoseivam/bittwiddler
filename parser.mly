@@ -165,8 +165,6 @@ expr:
   | LPAREN expr RPAREN { $2 }
   | match_      { $1 }
   | conditional { $1 }
-  | for_        { $1 }
-  | while_      { $1 }
 
   | ID       LPAREN expr_list RPAREN { Call($1, List.rev $3)  }
 
@@ -177,6 +175,8 @@ block_stmt:
     expr SEMICOLON        { Expr($1)   }
   | var                   { LVar($1)   }
   | RETURN expr SEMICOLON { Return($2) }
+  | for_                  { $1         }
+  | while_                { $1         }
 
 block_stmts:
     block_stmt             { [$1] }

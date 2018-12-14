@@ -341,42 +341,6 @@ let translate prog =
                 Some v -> L.build_load v "res" builder
               | None -> L.undef void_t)
 
-        (* While block (it's an expression) *)
-      | (t, SWhile (pred, body)) ->
-            let the_function = match ctx.cur_func with
-                Some f -> f
-              | None -> raise (Failure "internal error: no current function")
-            in
-
-            (* The result of the block expression will be stored here *)
-            let block_res = match t with
-                A.ScalarType A.TNone -> None
-              | A.ScalarType _ ->
-                      Some (create_entry_block_alloca the_function "blres" t)
-              | A.ArrayType _ -> raise (Failure "arrays not implemented yet")
-            in
-
-            (* Build predicate *)
-            let pred_bb = L.append_block context "while" the_function in
-            let _ = L.build_br pred_bb builder in
-
-            (* Build body *)
-            let body_bb = L.append_block context "while_body" the_function in
-            let body_builder = (L.builder_at_end context body_bb) in
-            let body_builder = (build_block ctx body_builder block_res body) in
-            add_terminal body_builder (L.build_br pred_bb);
-
-            let pred_builder = L.builder_at_end context pred_bb in
-            let (_,bool_val) = build_expr ctx pred_builder pred in
-
-            let merge_bb = L.append_block context "merge" the_function in
-            let _ = L.build_cond_br bool_val body_bb merge_bb pred_builder in
-
-            let builder = L.builder_at_end context merge_bb in
-            (builder, match block_res with
-                Some v -> L.build_load v "res" builder
-              | None -> L.undef void_t)
-
       | (_, SCall("__bt_emit", args)) ->
             let args' = List.map (build_expr_s ctx builder) args in
             let args' = Array.of_list (List.map snd args') in
@@ -459,6 +423,28 @@ let translate prog =
               let (builder, e') = build_expr ctx builder e in
               ignore(L.build_ret e' builder);
               (None, ctx, builder)
+      | SWhile (pred, body) ->
+            let the_function = match ctx.cur_func with
+                Some f -> f
+              | None -> raise (Failure "internal error: no current function")
+            in
+
+            (* Build predicate *)
+            let pred_bb = L.append_block context "while" the_function in
+            let _ = L.build_br pred_bb builder in
+
+            (* Build body *)
+            let body_bb = L.append_block context "while_body" the_function in
+            let body_builder = (L.builder_at_end context body_bb) in
+            let body_builder = (build_block ctx body_builder None body) in
+            add_terminal body_builder (L.build_br pred_bb);
+
+            let pred_builder = L.builder_at_end context pred_bb in
+            let (_,bool_val) = build_expr ctx pred_builder pred in
+
+            let merge_bb = L.append_block context "merge" the_function in
+            let _ = L.build_cond_br bool_val body_bb merge_bb pred_builder in
+            (None, ctx, L.builder_at_end context merge_bb)
       | _ as i ->
               raise (Failure ("can't build block item "
                               ^ (string_of_sblock_item i)))
@@ -474,11 +460,9 @@ let translate prog =
             let (lval, _, builder) = build_block_item ctx builder item in
             let _ = match (res, lval) with
                 (Some r, Some v) -> ignore(L.build_store v r builder)
-              | (None, None) -> ()
+              | (None, _) -> ()
               | (Some _, None) -> raise (Failure ("Block expected to end with "
                                                   ^ "an expression"))
-              | (None, Some _) -> raise (Failure ("Block expected to be of "
-                                                  ^ "None type"))
             in
             builder
       | hd::tl ->
