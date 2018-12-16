@@ -1,0 +1,4 @@
+main {
+    var x:uint32 = 10;
+    for i, e in x {}
+}

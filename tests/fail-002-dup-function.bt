@@ -1,0 +1,7 @@
+func test (a:int32):None {
+}
+
+func test (b:int64):None {
+}
+
+main {}

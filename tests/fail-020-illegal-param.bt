@@ -1,0 +1,2 @@
+func test(a:None):None {}
+main{}

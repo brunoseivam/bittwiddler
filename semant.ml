@@ -311,7 +311,7 @@ let rec check_expr ctx = function
             let (t,e') = check_expr ctx e in
             let fname = match t with
                 SScalar TString | SArray _ -> "__bt_len"
-              | _ -> fail (id ^ "can't be applied to type: "
+              | _ -> fail (id ^ " can't be applied to type: "
                            ^ string_of_stype t)
             in
             (size_t, SCall(fname, [(t,e')]))
@@ -384,7 +384,8 @@ and check_stmt ctx = function
         let (t, e') = check_expr ctx e in
         let idx_t = size_t in
         let item_t = match t with
-            SArray(pt,_) -> SScalar pt
+            SArray(TString,_) -> fail "Can't iterate over array of strings"
+          | SArray(pt,_) -> SScalar pt
           | SScalar TString -> char_t
           | _ -> fail ("Can't iterate over expression of type "
                        ^ string_of_stype t)
@@ -517,12 +518,11 @@ let coerce_func (sf:sfunc) =
 
         (* A return statement has None type. Its returned expression must have
          * the type that the enclosing function expects *)
-      | SReturn(se) -> SReturn(coerce_sexpr ftype se)
+      | SReturn se -> SReturn(coerce_sexpr ftype se)
 
         (* The last SExpr in a block is the block's value, so its type must
          * match the expected type ty. *)
-      | SExpr(se) ->
-              SExpr(coerce_sexpr ty se)
+      | SExpr se -> SExpr(coerce_sexpr ty se)
 
         (* TODO: should never reach this; SLVars should have a value defined
          * after semantic analysis *)
@@ -534,7 +534,7 @@ let coerce_func (sf:sfunc) =
       | [item] -> [coerce_sstmt ty item]
       | hd::tl ->
             let hd =
-               match hd with SExpr(_) -> hd | _ -> coerce_sstmt ty hd
+               match hd with SExpr _ -> hd | _ -> coerce_sstmt ty hd
             in
             hd::(coerce_sblock ty tl)
     in
