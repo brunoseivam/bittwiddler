@@ -1,7 +1,25 @@
 main {
-    var one_to_five:uint16[] = [1, 2, 3, 4, 5];
+    var one_to_five_u8:uint8[]    = [1, 2, 3, 4, 5];
+    var one_to_five_u16:uint16[]  = [1, 2, 3, 4, 5];
+    var one_to_five_u32:uint32[]  = [1, 2, 3, 4, 5];
+    var one_to_five_u64:uint64[]  = [1, 2, 3, 4, 5];
+    var one_to_five_i8:int8[]    = [-1, -2, -3, -4, -5];
+    var one_to_five_i16:int16[]  = [-1, -2, -3, -4, -5];
+    var one_to_five_i32:int32[]  = [-1, -2, -3, -4, -5];
+    var one_to_five_i64:int64[]  = [-1, -2, -3, -4, -5];
+    var one_to_five_f32:float32[] = [1.0, 2.0, 3.0, 4.0, 5.0];
+    var one_to_five_f64:float64[] = [1.0, 2.0, 3.0, 4.0, 5.0];
+    var one_to_five_str           = "12345";
 
-    for i, v in one_to_five {
-        emit("one_to_five[{i}]: {v}\n");
-    }
+    for i, v in one_to_five_u8  { emit("one_to_five_u8[{i}]:  {v}\n"); }
+    for i, v in one_to_five_u16 { emit("one_to_five_u16[{i}]: {v}\n"); }
+    for i, v in one_to_five_u32 { emit("one_to_five_u32[{i}]: {v}\n"); }
+    for i, v in one_to_five_u64 { emit("one_to_five_u64[{i}]: {v}\n"); }
+    for i, v in one_to_five_i8  { emit("one_to_five_i8[{i}]:  {v}\n"); }
+    for i, v in one_to_five_i16 { emit("one_to_five_i16[{i}]: {v}\n"); }
+    for i, v in one_to_five_i32 { emit("one_to_five_i32[{i}]: {v}\n"); }
+    for i, v in one_to_five_i64 { emit("one_to_five_i64[{i}]: {v}\n"); }
+    for i, v in one_to_five_f32 { emit("one_to_five_f32[{i}]: {v}\n"); }
+    for i, v in one_to_five_f64 { emit("one_to_five_f64[{i}]: {v}\n"); }
+    for i, v in one_to_five_str { emit("one_to_five_str[{i}]: {v}\n"); }
 }

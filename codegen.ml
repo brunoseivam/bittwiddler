@@ -13,6 +13,8 @@ type ctx = {
     cur_func : L.llvalue option;        (* current function *)
 }
 
+let size_t = A.size_t
+
 let string_of_ctx name ctx =
     let string_of_var k lv =
         "var " ^ k ^ ": " ^ (L.string_of_llvalue lv)
@@ -212,6 +214,29 @@ let translate prog =
             let (builder, e') = build_expr ctx builder e in
             ignore(L.build_store e' (lookup_var id ctx) builder);
             (builder, e')
+
+        (* Array subscript a[i]*)
+      | (t, SBinop (a, A.Subscr, i)) ->
+            let (builder, i') = build_expr ctx builder i in
+            let (builder, a') = build_expr ctx builder a in
+            let a' = match fst a with
+                A.ArrayType _ -> a'
+              | A.ScalarType A.TString ->
+                    let arr_ptr = L.build_struct_gep a' 1 "arr_ptr" builder in
+                    L.build_load arr_ptr "arr" builder
+              | t -> raise (Failure ("Operator " ^ A.string_of_op A.Subscr
+                                     ^ " not implemented for type "
+                                     ^ A.string_of_type t))
+            in
+
+            let data_ptr = L.build_struct_gep a' 3 "data_ptr" builder in
+            let data = L.build_load data_ptr "data" builder in
+            let data_cast =
+                L.build_pointercast data (L.pointer_type (ltype_of_type t))
+                "data_cast" builder
+            in
+            let el_ptr = L.build_gep data_cast [| i' |] "el_ptr" builder in
+            (builder, L.build_load el_ptr "el" builder)
 
         (* Binary operation on integers *)
       | (_, SBinop ((A.ScalarType A.TInt (u,_),_) as e1, op, e2)) ->
@@ -469,14 +494,15 @@ let translate prog =
          *)
       | SFor(idx_sv, item_sv, e, block) ->
             (* Declare and initialize relevant, new variables *)
-            let size_t = A.ScalarType(A.TInt(true,64)) in
             let (idx, _, _) = idx_sv in
-            let (_, item_t, _) = item_sv in
-            let len_sv = ("__len", size_t, Some (size_t, SCall("len", [e]))) in
+            let (item, item_t, _) = item_sv in
+            let len_sv =
+                ("__len", size_t, Some (size_t, SCall("__bt_len", [e])))
+            in
 
             (* Read item from array: item = e[idx] *)
             let pre_block:sstmt = SExpr(A.ScalarType A.TNone, SBinop(
-                (item_t, SId "__len"),
+                (item_t, SId item),
                 A.Assign,
                 (item_t, SBinop(e, A.Subscr, (size_t, SId idx)))
             )) in

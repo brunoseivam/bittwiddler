@@ -108,10 +108,6 @@ let check_type_compat t1 t2 =
                 (ArrayType(st1',l1), ArrayType(st2',l2))
       | _ -> fail failure
 
-let is_array = function
-    ArrayType(_,_) -> true
-  | _ -> false
-
 let is_integer = function
     ScalarType(TInt(_,_)) | ScalarType(TAInt) -> true
   | _ -> false
@@ -148,6 +144,57 @@ let rec check_expr ctx = function
   | Id s ->
         let (_,type_,_) = find_elem ctx.variables s in (type_, SId s)
   | EType t -> (ScalarType TType , SEType t)
+
+    (* A Subscr a[i] will be transformed into:
+     *
+     *    if i >= 0 and i < len(a) {
+     *        a[i];
+     *    } else {
+     *        fail("array access out of bounds\n");
+     *        0;
+     *    }
+     *
+     *)
+  | Binop(a, Subscr, i) ->
+        let (a_t, a') = check_expr ctx a
+        and (i_t, i') = check_expr ctx i in
+
+        let failure =
+            "Operator " ^ string_of_op Subscr ^ " not defined for types "
+            ^ string_of_type a_t ^ " and " ^ string_of_type i_t
+        in
+
+        (* Check that the types are compatible *)
+        let ty, pty = match (a_t, is_integer i_t) with
+            (ArrayType (t,_), true) -> ScalarType t, t
+          | (ScalarType TString, true) -> a_t, TString
+          | _ -> fail failure
+        in
+
+        (* Generate bounds-checked array access *)
+        let pred = check_expr ctx (Binop(
+            Binop(i,GtEq,LInt 0),
+            And,
+            Binop(i,Lt,Call("len",[a]))
+        )) in
+
+        let then_ = [SExpr(ty, SBinop((a_t,a'), Subscr, (i_t,i')))] in
+
+        let _, else_ = check_block ctx [
+            Expr(Call("fatal", [LString "array access out of bounds"]));
+            Expr(
+                match pty with
+                    TInt _ | TAInt     -> LInt 0
+                  | TFloat _ | TAFloat -> LFloat 0.0
+                  | TString            -> LString ""
+                  | _ -> fail ("internal error: don't know what to return"
+                              ^ " for out of bounds access in "
+                              ^ string_of_expr (Binop(a,Subscr,i)))
+            )
+        ] in
+
+        (ty, SIf(pred, then_, else_))
+
   | Binop(e1,op,e2) ->
         let failure t1 t2 =
             "Operator " ^ string_of_op op ^ " not defined for types "
@@ -158,19 +205,16 @@ let rec check_expr ctx = function
         and (t2, e2') = check_expr ctx e2 in
 
         (* Promote types and check that they are compatible *)
-        let (t1', t2') = match op with
-            Subscr when is_array t1 && is_integer t2 -> (t1, t2)
-          | _ -> check_type_compat t1 t2
-        in
+        let (t1', t2') = check_type_compat t1 t2 in
 
         let ty = match op with
             (* Overloaded Plus *)
             Plus -> (match (t1', t2') with
                 (* String concatenation *)
-                (ScalarType(TString), _) -> t1'
+                (ScalarType TString, _) -> t1'
                 (* Array concatenation *)
-              | (ArrayType(st1',Some(LInt(l1))),
-                 ArrayType(_,Some(LInt(l2)))) ->
+              | (ArrayType(st1',Some(LInt l1)),
+                 ArrayType(_,Some(LInt l2))) ->
                     ArrayType(st1',Some(LInt(l1+l2)))
                 (* Number addition *)
               | (t1',_) when is_number t1' -> t1'
@@ -183,15 +227,7 @@ let rec check_expr ctx = function
             (* Boolean operations *)
           | And | Or when is_bool t1' -> ScalarType TBool
           | Lt | LtEq | Eq | NEq | GtEq | Gt -> ScalarType TBool
-
-            (* Array subscript: returned type is the type of a single
-             * element *)
-          | Subscr -> (match t1' with
-                ArrayType(at,_) -> ScalarType(at)
-              | _ -> fail ("Operator " ^ string_of_op op
-                           ^ " used on non-array"))
           | Assign -> t2'
-            (* TODO: Access operator *)
           | _ -> fail (failure t1' t2')
         in
         (ty, SBinop((t1',e1'), op, (t2',e2')))
@@ -289,7 +325,7 @@ let rec check_expr ctx = function
               | _ -> fail (id ^ "can't be applied to type: "
                            ^ string_of_type t)
             in
-            (ScalarType(TInt(true,64)), SCall(fname, [(t,e')]))
+            (size_t, SCall(fname, [(t,e')]))
       | _ -> fail ("len requires a single array or string argument")
     )
 
@@ -344,7 +380,7 @@ and check_stmt ctx = function
 
   | For(idx, item, e, block) ->
         let (t, e') = check_expr ctx e in
-        let idx_t = ScalarType(TInt(true,64)) in
+        let idx_t = size_t in
         let item_t = match t with
             ArrayType(pt,_) -> ScalarType pt
           | ScalarType TString -> t
@@ -523,7 +559,7 @@ let check prog =
     (* Add built-in functions and main to list of program declarations *)
     let built_in_funcs = [
         Func("emit", ScalarType TNone, [], []);
-        Func("len", ScalarType(TInt(true,64)), [], []);
+        Func("len", size_t, [], []);
     ]
     and main_func =
         Func("main", ScalarType(TInt(false,32)), [], main @ [Return(LInt(0))])

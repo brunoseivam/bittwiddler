@@ -61,6 +61,8 @@ type program_decl =
 
 type program = Program of program_decl list * stmt list
 
+let size_t = ScalarType (TInt(true,64))
+
 (* Pretty-printing functions *)
 
 let string_of_op = function
