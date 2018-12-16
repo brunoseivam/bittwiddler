@@ -165,10 +165,14 @@ let rec check_expr ctx = function
         in
 
         (* Check that the types are compatible *)
-        let ty, pty = match (a_t, is_integer i_t) with
-            (ArrayType (t,_), true) -> ScalarType t, t
-          | (ScalarType TString, true) -> a_t, TString
+        let ty = match (a_t, is_integer i_t) with
+            (ArrayType (t,_), true) -> ScalarType t
+          | (ScalarType TString, true) -> char_t
           | _ -> fail failure
+        in
+
+        let pty =
+            match ty with ScalarType t -> t | _ -> fail "internal error"
         in
 
         (* Generate bounds-checked array access *)
@@ -383,7 +387,7 @@ and check_stmt ctx = function
         let idx_t = size_t in
         let item_t = match t with
             ArrayType(pt,_) -> ScalarType pt
-          | ScalarType TString -> t
+          | ScalarType TString -> char_t
           | _ -> fail ("Can't iterate over expression of type "
                        ^ string_of_type t)
         in

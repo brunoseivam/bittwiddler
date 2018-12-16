@@ -231,9 +231,12 @@ let translate prog =
 
             let data_ptr = L.build_struct_gep a' 3 "data_ptr" builder in
             let data = L.build_load data_ptr "data" builder in
+            let el_ptr_t = L.pointer_type (match t with
+                A.ScalarType A.TString -> i8_t
+              | _ -> ltype_of_type t)
+            in
             let data_cast =
-                L.build_pointercast data (L.pointer_type (ltype_of_type t))
-                "data_cast" builder
+                L.build_pointercast data el_ptr_t "data_cast" builder
             in
             let el_ptr = L.build_gep data_cast [| i' |] "el_ptr" builder in
             (builder, L.build_load el_ptr "el" builder)
