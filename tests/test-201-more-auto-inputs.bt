@@ -1,0 +1,33 @@
+main {
+    # Input data generated with
+    # ./gen_bin_data i8 1 i8 2 i8 3 \
+    #                i16 1 i16 2 i16 3 \
+    #                i32 1 i32 2 i32 3 \
+    #                i64 1 i64 2 i64 3
+
+    var i8 : int8[3];
+    var i16 : int16[3];
+    var i32 : int32[3];
+    var i64 : int64[3];
+
+    var i8_0 = i8[0];
+    var i8_1 = i8[1];
+    var i8_2 = i8[2];
+
+    var i16_0 = i16[0];
+    var i16_1 = i16[1];
+    var i16_2 = i16[2];
+
+    var i32_0 = i32[0];
+    var i32_1 = i32[1];
+    var i32_2 = i32[2];
+
+    var i64_0 = i64[0];
+    var i64_1 = i64[1];
+    var i64_2 = i64[2];
+
+    emit("i8=[{i8_0},{i8_1},{i8_2}]\n");
+    emit("i16=[{i16_0},{i16_1},{i16_2}]\n");
+    emit("i32=[{i32_0},{i32_1},{i32_2}]\n");
+    emit("i64=[{i64_0},{i64_1},{i64_2}]\n");
+}

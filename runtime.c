@@ -31,6 +31,13 @@ static struct __bt_str *__bt_str_ll = NULL;
 
 /*
  *
+ * Forward declarations
+ *
+ */
+void __bt_read(void *target, size_t n);
+
+/*
+ *
  * Debug functions
  *
  */
@@ -139,9 +146,11 @@ void __bt_arr_resize(struct __bt_arr *arr, size_t new_n) {
     arr->n = new_n;
 }
 
-// Returns the underlying array data
-char *__bt_arr_get(struct __bt_arr *arr) {
-    return arr->data;
+// Reads a BitTwiddler array from the standard input
+struct __bt_arr *__bt_arr_read(size_t n, size_t elsz) {
+    struct __bt_arr *a = __bt_arr_new(n, elsz, NULL);
+    __bt_read(a->data, n*elsz);
+    return a;
 }
 
 /*
@@ -247,10 +256,6 @@ struct __bt_str *__bt_str_read(void) {
     return __bt_str_new(buf);
 }
 
-const char *__bt_str_get(struct __bt_str *s) {
-    return s->arr->data;
-}
-
 /*
  *
  * BitTwiddler reading from stdin
@@ -283,6 +288,8 @@ int32_t __bt_read_i32(void) { int32_t v; __bt_read((void*)&v, 4); return v; }
 int64_t __bt_read_i64(void) { int64_t v; __bt_read((void*)&v, 8); return v; }
 float   __bt_read_f32(void) { float v;   __bt_read((void*)&v, 4); return v; }
 double  __bt_read_f64(void) { double v;  __bt_read((void*)&v, 8); return v; }
+
+
 
 /*
  *

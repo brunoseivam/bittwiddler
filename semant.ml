@@ -49,10 +49,10 @@ let find_elem map id =
 (* Built-in functions transformations *)
 let check_emit_fmt fname ctx emit_fmt =
     let emit_err id t =
-        fail ("don't know how to emit " ^ id ^ ":" ^ string_of_type t)
+        fail ("don't know how to emit " ^ id ^ ":" ^ string_of_stype t)
     in
 
-    let fkind = (ScalarType (TInt(false, 32)), SLInt(match fname with
+    let fkind = (SScalar (TInt(false, 32)), SLInt(match fname with
         "emit" -> 0 | "print" -> 1 | "fatal" -> 2
       | _ -> fail ("invalid 'emit' kind: '" ^ fname ^ "'")))
     in
@@ -62,7 +62,7 @@ let check_emit_fmt fname ctx emit_fmt =
         [] -> (fmt, args)
       | (STR s)::tl -> build_args (fmt ^ s) args tl
       | (VAR id)::tl -> (match find_elem ctx.variables id with
-            (id,ScalarType pt,_) ->
+            (id, SScalar pt,_) ->
                 let tfmt = (match pt with
                     TInt(true,64) -> "%lu"
                   | TInt(false,64) -> "%ld"
@@ -71,23 +71,22 @@ let check_emit_fmt fname ctx emit_fmt =
                   | TAFloat | TFloat(_) -> "%f"
                   | TString -> "%s"
                   | TBool -> "%d"
-                  | _ -> emit_err id (ScalarType pt)
+                  | _ -> emit_err id (SScalar pt)
                 ) in
-                build_args (fmt ^ tfmt) ((ScalarType pt, SId id)::args) tl
+                build_args (fmt ^ tfmt) ((SScalar pt, SId id)::args) tl
           | (id,t,_) -> emit_err id t
         )
     in
 
     (* Note: args is reversed here *)
     let (fmt, args) = build_args "" [] (parse_emit_fmt emit_fmt) in
-    ([fkind; (ScalarType TString, SLString fmt)] @ (List.rev args))
-
+    ([fkind; (SScalar TString, SLString fmt)] @ (List.rev args))
 
 (* Type compatibility: 'abstract' types are promoted to concrete types *)
 (* TODO: upcast for different integer/float sizes *)
 let check_type_compat t1 t2 =
-    let failure = "Incompatible types " ^ string_of_type t1
-        ^ " and " ^ string_of_type t2
+    let failure = "Incompatible types " ^ string_of_stype t1
+        ^ " and " ^ string_of_stype t2
     in
 
     let upcast t1 t2 = match (t1,t2) with
@@ -95,35 +94,25 @@ let check_type_compat t1 t2 =
       | (TAInt, TInt(_,_)) -> (t2, t2)
       | (TFloat(_), TAFloat) -> (t1, t1)
       | (TAFloat, TFloat(_)) -> (t2, t2)
+      | (TAInt, TAInt) -> (TInt(false,64), TInt(false,64))
+      | (TAFloat, TAFloat) -> (TFloat 64, TFloat 64)
       | (_, _) when t1 = t2 -> (t1, t2)
       | _ -> fail failure
     in
 
     match (t1, t2) with
-        (ScalarType(st1), ScalarType(st2)) ->
+        (SScalar st1, SScalar st2) ->
             let (st1', st2') = upcast st1 st2 in
-                (ScalarType(st1'), ScalarType(st2'))
-      | (ArrayType(st1,l1), ArrayType(st2,l2)) ->
+                (SScalar st1', SScalar st2')
+      | (SArray(st1,l1), SArray(st2,l2)) ->
             let (st1', st2') = upcast st1 st2 in
-                (ArrayType(st1',l1), ArrayType(st2',l2))
+                (SArray(st1',l1), SArray(st2',l2))
       | _ -> fail failure
-
-let is_integer = function
-    ScalarType(TInt(_,_)) | ScalarType(TAInt) -> true
-  | _ -> false
-
-let is_float = function
-    ScalarType(TFloat(_)) | ScalarType(TAFloat) -> true
-  | _ -> false
-
-let is_number x = (is_integer x) || (is_float x)
-
-let is_bool = function ScalarType TBool -> true | _ -> false
 
 let rec type_of_arr_lit = function
     [] -> fail "Can't determine type of empty literal array"
-  | [(ScalarType(t),_)] -> t
-  | (ScalarType(t),_)::tl when t = type_of_arr_lit tl -> t
+  | [(SScalar t,_)] -> t
+  | (SScalar t,_)::tl when t = type_of_arr_lit tl -> t
   | _ -> fail "Array literal has mixed or invalid types"
 
 (*
@@ -132,18 +121,18 @@ let rec type_of_arr_lit = function
 
 (* Check expression. Return sexpr. *)
 let rec check_expr ctx = function
-    LInt l -> (ScalarType(TAInt), SLInt l)
-  | LFloat l -> (ScalarType(TAFloat), SLFloat l)
-  | LString l -> (ScalarType(TString), SLString l)
-  | LBool l -> (ScalarType TBool, SLBool l)
+    LInt l -> (SScalar TAInt, SLInt l)
+  | LFloat l -> (SScalar TAFloat, SLFloat l)
+  | LString l -> (SScalar TString, SLString l)
+  | LBool l -> (SScalar TBool, SLBool l)
   | LArray el ->
         (* sel = semantically-checked expression list *)
         let sel = List.map (check_expr ctx) el in
-            (ArrayType(type_of_arr_lit sel, Some(LInt(List.length sel))),
-            SLArray sel)
+        (SArray(type_of_arr_lit sel, Some((size_t,SLInt(List.length sel)))),
+         SLArray sel)
   | Id s ->
         let (_,type_,_) = find_elem ctx.variables s in (type_, SId s)
-  | EType t -> (ScalarType TType , SEType t)
+  | EType t -> (SScalar TType , SEType t)
 
     (* A Subscr a[i] will be transformed into:
      *
@@ -161,18 +150,20 @@ let rec check_expr ctx = function
 
         let failure =
             "Operator " ^ string_of_op Subscr ^ " not defined for types "
-            ^ string_of_type a_t ^ " and " ^ string_of_type i_t
+            ^ string_of_stype a_t ^ " and " ^ string_of_stype i_t
         in
 
         (* Check that the types are compatible *)
         let ty = match (a_t, is_integer i_t) with
-            (ArrayType (t,_), true) -> ScalarType t
-          | (ScalarType TString, true) -> char_t
+            (SArray (t,_), true) -> SScalar t
+          | (SScalar TString, true) -> char_t
           | _ -> fail failure
         in
 
+        let i_t = if i_t=SScalar TAInt then size_t else i_t in
+
         let pty =
-            match ty with ScalarType t -> t | _ -> fail "internal error"
+            match ty with SScalar t -> t | _ -> fail "internal error"
         in
 
         (* Generate bounds-checked array access *)
@@ -184,16 +175,17 @@ let rec check_expr ctx = function
 
         let then_ = [SExpr(ty, SBinop((a_t,a'), Subscr, (i_t,i')))] in
 
-        let _, else_ = check_block ctx [
-            Expr(Call("fatal", [LString "array access out of bounds"]));
-            Expr(
-                match pty with
-                    TInt _ | TAInt     -> LInt 0
-                  | TFloat _ | TAFloat -> LFloat 0.0
-                  | TString            -> LString ""
-                  | _ -> fail ("internal error: don't know what to return"
-                              ^ " for out of bounds access in "
-                              ^ string_of_expr (Binop(a,Subscr,i)))
+        let else_ = [
+            SExpr(check_expr ctx (
+                Call("fatal", [LString "array access out of bounds"])
+            ));
+            SExpr(ty, match pty with
+                TInt _   -> SLInt 0
+              | TFloat _ -> SLFloat 0.0
+              | TString  -> SLString ""
+              | _ -> fail ("internal error: don't know what to return"
+                          ^ " for out of bounds access in "
+                          ^ string_of_expr (Binop(a,Subscr,i)))
             )
         ] in
 
@@ -202,7 +194,7 @@ let rec check_expr ctx = function
   | Binop(e1,op,e2) ->
         let failure t1 t2 =
             "Operator " ^ string_of_op op ^ " not defined for types "
-            ^ string_of_type t1 ^ " and " ^ string_of_type t2
+            ^ string_of_stype t1 ^ " and " ^ string_of_stype t2
         in
 
         let (t1, e1') = check_expr ctx e1
@@ -215,11 +207,11 @@ let rec check_expr ctx = function
             (* Overloaded Plus *)
             Plus -> (match (t1', t2') with
                 (* String concatenation *)
-                (ScalarType TString, _) -> t1'
+                (SScalar TString, _) -> t1'
                 (* Array concatenation *)
-              | (ArrayType(st1',Some(LInt l1)),
-                 ArrayType(_,Some(LInt l2))) ->
-                    ArrayType(st1',Some(LInt(l1+l2)))
+              | (SArray(st1',Some(_, SLInt l1)),
+                 SArray(_,Some(_, SLInt l2))) ->
+                    SArray(st1',Some(size_t, SLInt(l1+l2)))
                 (* Number addition *)
               | (t1',_) when is_number t1' -> t1'
               | _ -> fail (failure t1' t2'))
@@ -229,8 +221,8 @@ let rec check_expr ctx = function
             (* Defined for Integers only *)
           | Rem | LShift | RShift | BwOr | BwAnd when is_integer t1' -> t1'
             (* Boolean operations *)
-          | And | Or when is_bool t1' -> ScalarType TBool
-          | Lt | LtEq | Eq | NEq | GtEq | Gt -> ScalarType TBool
+          | And | Or when is_bool t1' -> SScalar TBool
+          | Lt | LtEq | Eq | NEq | GtEq | Gt -> SScalar TBool
           | Assign -> t2'
           | _ -> fail (failure t1' t2')
         in
@@ -239,13 +231,13 @@ let rec check_expr ctx = function
   | Unop(uop, e) ->
         let (t, e') = check_expr ctx e in
         let ty = match (t, uop) with
-            (ScalarType TBool, Not) -> t
-          | (ScalarType (TInt _), BwNot)
-          | (ScalarType (TInt _), Neg)
-          | (ScalarType (TFloat _), Neg) -> t
-          | _ -> fail ("Operator " ^ (string_of_uop uop)
-                                 ^ " not defined for type "
-                                 ^ (string_of_type t))
+            (SScalar TBool, Not) -> t
+          | (SScalar (TInt _), BwNot)
+          | (SScalar (TInt _), Neg)
+          | (SScalar (TFloat _), Neg) -> t
+          | _ -> fail ("Operator " ^ string_of_uop uop
+                                   ^ " not defined for type "
+                                   ^ string_of_stype t)
         in
         (ty, SUnop(uop, (t, e')))
 
@@ -280,7 +272,7 @@ let rec check_expr ctx = function
             None -> None
           | Some e ->
                 (match (check_expr ctx e) with
-                    (ScalarType TBool,_) as e' -> Some e'
+                    (SScalar TBool,_) as e' -> Some e'
                   | (_,sx) -> fail ("Non-boolean expression in conditional: "
                                     ^ string_of_sx sx)
                 )
@@ -316,7 +308,7 @@ let rec check_expr ctx = function
    * string *)
   | Call(id, el) when id="emit" || id="print" || id="fatal" -> (match el with
         [(LString s)] ->
-            (ScalarType TNone, SCall("__bt_emit", check_emit_fmt id ctx s))
+            (SScalar TNone, SCall("__bt_emit", check_emit_fmt id ctx s))
       | _ -> fail ("'" ^ id ^ "' requires a single literal string argument")
     )
 
@@ -325,9 +317,9 @@ let rec check_expr ctx = function
         [e] ->
             let (t,e') = check_expr ctx e in
             let fname = match t with
-                ScalarType TString | ArrayType _ -> "__bt_len"
+                SScalar TString | SArray _ -> "__bt_len"
               | _ -> fail (id ^ "can't be applied to type: "
-                           ^ string_of_type t)
+                           ^ string_of_stype t)
             in
             (size_t, SCall(fname, [(t,e')]))
       | _ -> fail ("len requires a single array or string argument")
@@ -339,23 +331,38 @@ let rec check_expr ctx = function
 
   | _  as e -> fail ("Not implemented: " ^ string_of_expr e)
 
+and check_type ctx = function
+    ScalarType t -> SScalar t
+  | ArrayType(t, Some e) ->
+        let st, se = check_expr ctx e in
+        let st = match st with
+            SScalar TAInt -> size_t
+          | SScalar TInt _ -> st
+          | _ -> fail ("array size can't be of type " ^ string_of_stype st)
+        in
+        SArray(t, Some (st, se))
+  | ArrayType(t, None) -> SArray(t, None)
+
 and check_var ctx v =
     let Var(id, t, e) = v in
     let (t, e) = match (t, e) with
         (* Both type and initial value, check that types are compatible *)
         (Some t, Some e) ->
+            let t = check_type ctx t in
             let (st, se) = check_expr ctx e in
             let _ = check_type_compat t st in
             (t, (st, se))
 
         (* Only type was declared, add automatic input reading *)
-      | (Some t, None) -> (t, (t, SCall("__bt_read", [])))
+      | (Some t, None) ->
+            let t = check_type ctx t in
+            (t, (t, SCall("__bt_read", [])))
 
         (* Only value was declared, coerce type *)
       | (None, Some e) ->
             let (st, se) = check_expr ctx e in
             (match st with
-                ScalarType TAInt | ScalarType TAFloat ->
+                SScalar TAInt | SScalar TAFloat ->
                     fail ("can't determine type of variable " ^ id)
               | _ ->
                     (st, (st, se))
@@ -369,12 +376,12 @@ and check_var ctx v =
 
 (* Returns a new context and a semantically checked block item *)
 and check_stmt ctx = function
-    LVar(v) -> let (ctx, sv) = check_var ctx v in (ctx, SLVar(sv))
-  | Expr(e) -> (ctx, SExpr(check_expr ctx e))
-  | Return(e) -> (ctx, SReturn(check_expr ctx e))
+    LVar v -> let (ctx, sv) = check_var ctx v in (ctx, SLVar sv)
+  | Expr e -> (ctx, SExpr(check_expr ctx e))
+  | Return e -> (ctx, SReturn(check_expr ctx e))
   | While(pred, block) ->
         let pred' = match (check_expr ctx pred) with
-            (ScalarType TBool, _) as pred' -> pred'
+            (SScalar TBool, _) as pred' -> pred'
           | (_,sx) -> fail ("Non-boolean expression in while predicate: "
                             ^ (string_of_sx sx))
         in
@@ -386,10 +393,10 @@ and check_stmt ctx = function
         let (t, e') = check_expr ctx e in
         let idx_t = size_t in
         let item_t = match t with
-            ArrayType(pt,_) -> ScalarType pt
-          | ScalarType TString -> char_t
+            SArray(pt,_) -> SScalar pt
+          | SScalar TString -> char_t
           | _ -> fail ("Can't iterate over expression of type "
-                       ^ string_of_type t)
+                       ^ string_of_stype t)
         in
         let idx_svar = (idx, idx_t, Some (idx_t, SLInt(0))) in
         let item_svar = (item, item_t, None) in
@@ -404,11 +411,11 @@ and check_stmt ctx = function
 (* Returns the type of the block (type of its last item) and a list of
  * semantically-checked block items *)
 and check_block ctx = function
-    [] -> (ScalarType TNone, [])
+    [] -> (SScalar TNone, [])
   | [item] ->
         let (_, item) = check_stmt ctx item in
         (match item with
-            SLVar _ | SReturn _ | SWhile _ | SFor _ -> ScalarType TNone
+            SLVar _ | SReturn _ | SWhile _ | SFor _ -> SScalar TNone
           | SExpr(t, _) -> t)
         , [item]
   | hd::tl ->
@@ -432,7 +439,7 @@ let check_dup kind where names =
 let rec add_params ctx params = match params with
     [] -> ctx
   | Param(id, type_)::tl ->
-        let sv = (id, type_, None) in
+        let sv = (id, check_type ctx type_, None) in
         let ctx = { ctx with variables = add_var ctx.variables sv } in
         add_params ctx tl
 
@@ -441,7 +448,7 @@ let check_params ctx params where =
         (List.map (function Param(id,_) -> id) params)
     in
     let _ = List.iter (function
-        Param(id,ScalarType(TNone)) ->
+        Param(id,ScalarType TNone) ->
             fail ("illegal " ^ id ^ " : None in " ^ where)
       | Param(id,ArrayType(TNone,_)) ->
             fail ("illegal " ^ id ^ " : None[] in " ^ where)
@@ -449,7 +456,7 @@ let check_params ctx params where =
     ) params in
 
     (add_params ctx params,
-    List.map (function Param(id, type_) -> (id, type_)) params)
+    List.map (function Param(id, type_) -> (id, check_type ctx type_)) params)
 
 (* Check global program declarations: Global variable, function and template.
  * Returns a modified context and a semantically checked program declaration.
@@ -457,12 +464,13 @@ let check_params ctx params where =
 let check_pdecl ctx = function
     Func(id, type_, params, body) ->
         let (lctx, sp) = check_params ctx params id in
+        let stype = check_type ctx type_ in
         (* Add itself to its local context: allow recursion *)
         let lctx = {
-            lctx with functions = add_func ctx.functions (id,type_,sp,[])
+            lctx with functions = add_func ctx.functions (id,stype,sp,[])
         } in
         let (_, sbody) = check_block lctx body in
-        let sf = (id, type_, sp, sbody) in
+        let sf = (id, stype, sp, sbody) in
         ({ ctx with functions = add_func ctx.functions sf }, SFunc sf)
   | Template(_, _, _) ->
         fail "Not implemented" (* TODO
@@ -481,12 +489,13 @@ let coerce_func (sf:sfunc) =
 
     let coerce_fail e t ty =
         fail ("can't coerce expression " ^ (string_of_sx e) ^ " from type "
-              ^ (string_of_type t) ^ " to type " ^ (string_of_type ty))
+              ^ (string_of_stype t) ^ " to type " ^ (string_of_stype ty))
     in
 
     let rec coerce_sexpr ty (t,e) = match (ty, t) with
-        (ScalarType (TInt _), ScalarType TAInt)
-      | (ScalarType (TFloat _), ScalarType TAFloat) ->
+        (t1, t2) when t1=t2 -> (t, e)
+      | (SScalar (TInt _), SScalar TAInt)
+      | (SScalar (TFloat _), SScalar TAFloat) ->
             (match e with
                 SLInt _ | SLFloat _ ->
                     (ty, e)
@@ -500,10 +509,10 @@ let coerce_func (sf:sfunc) =
                              coerce_sblock ty else_))
               | _ -> coerce_fail e t ty
             )
-      | (ArrayType(et, _), _) ->
+      | (SArray(et, _), _) ->
             (match e with
                 SLArray el -> (ty,
-                    SLArray(List.map (coerce_sexpr (ScalarType et)) el)
+                    SLArray(List.map (coerce_sexpr (SScalar et)) el)
                 )
               | _ -> coerce_fail e t ty
             )
@@ -542,7 +551,7 @@ let coerce_func (sf:sfunc) =
             in
             hd::(coerce_sblock ty tl)
     in
-    SFunc(id, ftype, sparams, coerce_sblock (ScalarType TNone) body)
+    SFunc(id, ftype, sparams, coerce_sblock (SScalar TNone) body)
 
 let rec coerce_sprog = function
     [] -> []
@@ -563,10 +572,10 @@ let check prog =
     (* Add built-in functions and main to list of program declarations *)
     let built_in_funcs = [
         Func("emit", ScalarType TNone, [], []);
-        Func("len", size_t, [], []);
+        Func("len", ScalarType(TInt(true,64)), [], []);
     ]
     and main_func =
-        Func("main", ScalarType(TInt(false,32)), [], main @ [Return(LInt(0))])
+        Func("main", ScalarType(TInt(false,32)), [], main @ [Return(LInt 0)])
     in
 
     let pdecls = built_in_funcs @ pdecls @ [main_func] in

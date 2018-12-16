@@ -1,0 +1,7 @@
+main {
+    if 2 > 1 {
+        emit("2 > 1: true\n");
+    } else {
+        emit("2 > 1: false\n");
+    };
+}

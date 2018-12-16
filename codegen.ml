@@ -13,7 +13,7 @@ type ctx = {
     cur_func : L.llvalue option;        (* current function *)
 }
 
-let size_t = A.size_t
+let size_t = size_t
 
 let string_of_ctx name ctx =
     let string_of_var k lv =
@@ -83,7 +83,7 @@ let translate prog =
 
     (* Get LLVM type from BitTwiddler type *)
     let ltype_of_type = function
-        A.ScalarType t -> (match t with
+        SScalar t -> (match t with
             A.TInt(_,w) -> L.integer_type context w
           | A.TFloat(32) -> f32_t
           | A.TFloat(64) -> f64_t
@@ -92,7 +92,7 @@ let translate prog =
           | A.TString -> L.pointer_type __bt_str_t
           | _ -> raise (Failure ("type not implemented " ^ A.string_of_ptype t))
         )
-      | A.ArrayType _ -> L.pointer_type __bt_arr_t
+      | SArray _ -> L.pointer_type __bt_arr_t
     in
 
     (* Create an alloca instruction in the entry block of the function *)
@@ -141,6 +141,13 @@ let translate prog =
         L.declare_function "__bt_str_read" ftype the_module
     in
 
+    let __bt_read_arr =
+        let ftype = L.function_type (L.pointer_type __bt_arr_t) [|
+            i64_t; i64_t
+        |] in
+        L.declare_function "__bt_arr_read" ftype the_module
+    in
+
     let __bt_arr_new =
         let __bt_arr_new_t =
             L.function_type (L.pointer_type __bt_arr_t) [|
@@ -181,8 +188,8 @@ let translate prog =
             in
             (builder, s)
 
-      | (A.ArrayType(t,_), SLArray el) ->
-            let lt = ltype_of_type (A.ScalarType t) in
+      | (SArray(t,_), SLArray el) ->
+            let lt = ltype_of_type (SScalar t) in
             let n = List.length el in
 
             (* builds list of built exprs *)
@@ -210,7 +217,7 @@ let translate prog =
             (builder, L.build_load (lookup_var id ctx) id builder)
 
         (* Assignment *)
-      | (A.ScalarType _, SBinop ((_, SId id), A.Assign, e)) ->
+      | (SScalar _, SBinop ((_, SId id), A.Assign, e)) ->
             let (builder, e') = build_expr ctx builder e in
             ignore(L.build_store e' (lookup_var id ctx) builder);
             (builder, e')
@@ -220,19 +227,19 @@ let translate prog =
             let (builder, i') = build_expr ctx builder i in
             let (builder, a') = build_expr ctx builder a in
             let a' = match fst a with
-                A.ArrayType _ -> a'
-              | A.ScalarType A.TString ->
+                SArray _ -> a'
+              | SScalar A.TString ->
                     let arr_ptr = L.build_struct_gep a' 1 "arr_ptr" builder in
                     L.build_load arr_ptr "arr" builder
               | t -> raise (Failure ("Operator " ^ A.string_of_op A.Subscr
                                      ^ " not implemented for type "
-                                     ^ A.string_of_type t))
+                                     ^ string_of_stype t))
             in
 
             let data_ptr = L.build_struct_gep a' 3 "data_ptr" builder in
             let data = L.build_load data_ptr "data" builder in
             let el_ptr_t = L.pointer_type (match t with
-                A.ScalarType A.TString -> i8_t
+                SScalar A.TString -> i8_t
               | _ -> ltype_of_type t)
             in
             let data_cast =
@@ -242,7 +249,7 @@ let translate prog =
             (builder, L.build_load el_ptr "el" builder)
 
         (* Binary operation on integers *)
-      | (_, SBinop ((A.ScalarType A.TInt (u,_),_) as e1, op, e2)) ->
+      | (_, SBinop ((SScalar A.TInt (u,_),_) as e1, op, e2)) ->
             let (_,e1') = build_expr ctx builder e1
             and (_,e2') = build_expr ctx builder e2 in
             let r = (match op with
@@ -270,7 +277,7 @@ let translate prog =
               | _ -> r)
 
         (* Binary operation on floats *)
-      | (_, SBinop ((A.ScalarType A.TFloat _, _) as e1, op, e2)) ->
+      | (_, SBinop ((SScalar A.TFloat _, _) as e1, op, e2)) ->
             let (_,e1') = build_expr ctx builder e1
             and (_,e2') = build_expr ctx builder e2 in
             let r = (match op with
@@ -291,7 +298,7 @@ let translate prog =
             (builder, r)
 
         (* Binary operation on bools *)
-      | (_, SBinop ((A.ScalarType A.TBool,_) as e1, op, e2)) ->
+      | (_, SBinop ((SScalar A.TBool,_) as e1, op, e2)) ->
             let (_,e1') = build_expr ctx builder e1
             and (_,e2') = build_expr ctx builder e2 in
             let r = (match op with
@@ -304,14 +311,14 @@ let translate prog =
             (builder, r)
 
         (* Binary operation on strings *)
-      | (_, SBinop ((A.ScalarType A.TString,_) as e1, A.Plus, e2)) ->
+      | (_, SBinop ((SScalar A.TString,_) as e1, A.Plus, e2)) ->
             let args' = List.map (build_expr ctx builder) [e1; e2] in
             let args' = Array.of_list (List.map snd args') in
             (builder, L.build_call __bt_str_concat args'
                                    "__bt_str_concat" builder)
 
         (* Unary operation on integer *)
-      | (A.ScalarType (A.TInt _), SUnop (uop, e)) ->
+      | (SScalar (A.TInt _), SUnop (uop, e)) ->
             let (builder, e') = build_expr ctx builder e in
             (builder, match uop with
                 A.BwNot -> L.build_not e' "tmp" builder
@@ -321,12 +328,12 @@ let translate prog =
                                      ^ " not implemented for integers")))
 
         (* Unary operation on float *)
-      | (A.ScalarType (A.TFloat _), SUnop (A.Neg, e)) ->
+      | (SScalar (A.TFloat _), SUnop (A.Neg, e)) ->
             let (builder, e') = build_expr ctx builder e in
             (builder, L.build_fneg e' "tmp" builder)
 
         (* Unary operation on bool *)
-      | (A.ScalarType A.TBool, SUnop (A.Not, e)) ->
+      | (SScalar A.TBool, SUnop (A.Not, e)) ->
             let (builder, e') = build_expr ctx builder e in
             (builder, L.build_not e' "not" builder)
 
@@ -339,10 +346,10 @@ let translate prog =
 
             (* The result of the block expression will be stored here *)
             let block_res = match t with
-                A.ScalarType A.TNone -> None
-              | A.ScalarType _ ->
+                SScalar A.TNone -> None
+              | SScalar _ ->
                       Some (create_entry_block_alloca the_function "blres" t)
-              | A.ArrayType _ -> raise (Failure "arrays not implemented yet")
+              | SArray _ -> raise (Failure "arrays not implemented yet")
             in
 
             (* Build predicate *)
@@ -379,7 +386,7 @@ let translate prog =
             let n = L.build_struct_gep e' 0 "n" builder in
             (builder, L.build_load n "len" builder)
 
-      | (A.ScalarType t, SCall("__bt_read", _)) ->
+      | (SScalar t, SCall("__bt_read", _)) ->
             let f = match t with
                 A.TInt(_,8)  -> __bt_read_i8
               | A.TInt(_,16) -> __bt_read_i16
@@ -389,10 +396,22 @@ let translate prog =
               | A.TFloat 64  -> __bt_read_f64
               | A.TString    -> __bt_read_str
               | _ -> raise (Failure ("automatic reading of scalar type "
-                                     ^ (A.string_of_ptype t)
+                                     ^ A.string_of_ptype t
                                      ^ " not implemented"))
             in
             (builder, L.build_call f [| |] "__bt_read" builder)
+
+      | (SArray(t, Some n), SCall("__bt_read", _)) ->
+            let builder, n' = build_expr ctx builder n in
+            let elsz = L.const_int (ltype_of_type size_t) (
+                match t with
+                    A.TInt(_,w) | A.TFloat w -> w/8
+                  | _ -> raise (Failure ("automatic reading of array type "
+                                         ^ A.string_of_ptype t
+                                         ^ " not implemented"))
+            ) in
+            (builder, L.build_call __bt_read_arr [|n'; elsz|]
+                                   "__bt_read_arr" builder)
 
       | (_, SCall(fname, args)) ->
             let args' = List.map (build_expr ctx builder) args in
@@ -415,7 +434,7 @@ let translate prog =
 
     (* Build an expression, flattening strings *)
     and build_expr_s ctx builder = function
-        (A.ScalarType A.TString, _) as e ->
+        (SScalar A.TString, _) as e ->
             let (builder, e') = build_expr ctx builder e in
             let arr_ptr = L.build_struct_gep e' 1 "arr_ptr" builder in
             let arr = L.build_load arr_ptr "arr" builder in
@@ -450,7 +469,7 @@ let translate prog =
       | SExpr e ->
             let (builder, e') = build_expr ctx builder e in
             let lval = match e with
-                (A.ScalarType A.TNone, _) -> None
+                (SScalar A.TNone, _) -> None
               | _ -> Some e'
             in
             (lval, ctx, builder)
@@ -504,14 +523,14 @@ let translate prog =
             in
 
             (* Read item from array: item = e[idx] *)
-            let pre_block:sstmt = SExpr(A.ScalarType A.TNone, SBinop(
+            let pre_block:sstmt = SExpr(SScalar A.TNone, SBinop(
                 (item_t, SId item),
                 A.Assign,
                 (item_t, SBinop(e, A.Subscr, (size_t, SId idx)))
             )) in
 
             (* Increment index: idx = idx + 1*)
-            let post_block :sstmt = SExpr(A.ScalarType A.TNone, SBinop(
+            let post_block :sstmt = SExpr(SScalar A.TNone, SBinop(
                 (size_t, SId idx),
                 A.Assign,
                 (size_t, SBinop((size_t, SId idx),
@@ -521,7 +540,7 @@ let translate prog =
 
             (* Build while loop: while(idx < len) { ... } *)
             let while_ = SWhile(
-                (A.ScalarType A.TBool, SBinop(
+                (SScalar A.TBool, SBinop(
                     (size_t, SId idx),
                     A.Lt,
                     (size_t, SId "__len"))),
@@ -569,13 +588,13 @@ let translate prog =
 
     (* Helper: 'LLVM return' from function type *)
     let ret_of_type t = match t with
-        A.ScalarType pt -> (match pt with
+        SScalar pt -> (match pt with
             A.TInt(_,_) -> L.build_ret (L.const_int (ltype_of_type t) 0)
           | A.TFloat(_) -> L.build_ret (L.const_float (ltype_of_type t) 0.0)
           | A.TNone -> L.build_ret_void
           | _ -> raise (Failure ("ret type not implemented " ^ A.string_of_ptype pt))
         )
-      | _ -> raise (Failure ("ret type not implemented " ^ A.string_of_type t))
+      | _ -> raise (Failure ("ret type not implemented " ^ string_of_stype t))
     in
 
     (* Build a global variable *)
@@ -583,9 +602,9 @@ let translate prog =
         let (id, type_, _) = v in
         let ltype = ltype_of_type type_ in
         let init = match type_ with
-            A.ScalarType(A.TInt(_,_)) -> L.const_int ltype 0
-          | A.ScalarType(A.TFloat(_)) -> L.const_float ltype 0.0
-          | _ -> raise (Failure ("gvar init " ^ (A.string_of_type type_)
+            SScalar(A.TInt(_,_)) -> L.const_int ltype 0
+          | SScalar(A.TFloat(_)) -> L.const_float ltype 0.0
+          | _ -> raise (Failure ("gvar init " ^ (string_of_stype type_)
                                  ^ "not implemented"))
         in
         let the_var = L.define_global id init the_module in

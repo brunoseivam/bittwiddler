@@ -1,1 +1,1 @@
-Fatal error: exception Failure("Operator % not defined for types float and float")
+Fatal error: exception Failure("Operator % not defined for types float64 and float64")
