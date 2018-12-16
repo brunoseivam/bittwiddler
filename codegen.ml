@@ -662,16 +662,10 @@ let translate prog =
         { ctx with funcs = StringMap.add id the_function ctx.funcs }
     in
 
-    (* Build a template *
-    let build_templ ctx t =
-        raise (Failure "templates: not implemented yet")
-    in*)
-
     (* Build a program declaration *)
     let build_pdecl ctx = function
         SGVar(v) -> build_gvar ctx v
       | SFunc(f) -> build_func ctx f
-      | STemplate(_) -> raise (Failure "templates not implemented yet")
     in
 
     (* Build all program declarations *)

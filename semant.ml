@@ -9,7 +9,6 @@ module StringMap = Map.Make(String)
 type context = {
     variables : svar StringMap.t;
     functions : sfunc StringMap.t;
-    templates : stempl StringMap.t;
 }
 
 (* Shorthand *)
@@ -17,14 +16,12 @@ let fail s = raise (Failure s)
 
 let string_of_ctx ctx =
     let string_of_sfunc (f:sfunc) = string_of_spdecl (SFunc f) in
-    let string_of_stempl (t:stempl) = string_of_spdecl (STemplate t) in
 
     let fold f m = StringMap.fold (fun k v r -> k^":"^(f  v)^"\n"^r) m "" in
 
     "context\n\n"
     ^ "variables\n---------\n\n" ^ (fold (string_of_svar) ctx.variables)
     ^ "functions\n---------\n\n" ^ (fold (string_of_sfunc) ctx.functions)
-    ^ "templates\n---------\n\n" ^ (fold (string_of_stempl) ctx.templates)
 
 (* Helper functions to add elements to maps *)
 let add_to_map map id elem kind =
@@ -38,9 +35,6 @@ let add_var map = function
 
 let add_func map = function
     (id,_,_,_) as f -> add_to_map map id f "function"
-
-let add_templ map = function
-    (id,_,_) as t -> add_to_map map id t "template"
 
 let find_elem map id =
     try StringMap.find id map
@@ -132,7 +126,6 @@ let rec check_expr ctx = function
          SLArray sel)
   | Id s ->
         let (_,type_,_) = find_elem ctx.variables s in (type_, SId s)
-  | EType t -> (SScalar TType , SEType t)
 
     (* A Subscr a[i] will be transformed into:
      *
@@ -329,8 +322,6 @@ let rec check_expr ctx = function
         let (_,type_,_,_) = find_elem ctx.functions id in
         (type_, SCall(id, List.map (check_expr ctx) el))
 
-  | _  as e -> fail ("Not implemented: " ^ string_of_expr e)
-
 and check_type ctx = function
     ScalarType t -> SScalar t
   | ArrayType(t, Some e) ->
@@ -458,7 +449,7 @@ let check_params ctx params where =
     (add_params ctx params,
     List.map (function Param(id, type_) -> (id, check_type ctx type_)) params)
 
-(* Check global program declarations: Global variable, function and template.
+(* Check global program declarations: Global variable and function
  * Returns a modified context and a semantically checked program declaration.
  *)
 let check_pdecl ctx = function
@@ -472,10 +463,6 @@ let check_pdecl ctx = function
         let (_, sbody) = check_block lctx body in
         let sf = (id, stype, sp, sbody) in
         ({ ctx with functions = add_func ctx.functions sf }, SFunc sf)
-  | Template(_, _, _) ->
-        fail "Not implemented" (* TODO
-        let st = STemplate(id, check_params params, check_tblock ctx body) in
-        ({ ctx with templates = add_templ ctx.templates st}, st)*)
   | GVar(v) ->
         let (ctx, sv) = check_var ctx v in
         (ctx, SGVar(sv))
@@ -584,7 +571,6 @@ let check prog =
     let ctx = {
         variables = StringMap.empty;
         functions = StringMap.empty;
-        templates = StringMap.empty;
     } in
 
     coerce_sprog (check_pdecls ctx pdecls)

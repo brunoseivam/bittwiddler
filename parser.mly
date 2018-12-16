@@ -2,7 +2,7 @@
 
 %token WILDCARD
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK LANGLE RANGLE
-%token TEMPLATE MAIN FUNCTION RETURN VAR
+%token MAIN FUNCTION RETURN VAR
 %token FOR IN WHILE MATCH ARM IF ELSE ELIF
 %token DOT COMMA COLON SEMICOLON ASSIGN
 %token PLUS MINUS TIMES DIV REM
@@ -43,23 +43,14 @@
 %%
 
 typename:
-    INT_T             { TInt($1)    }
-  | FLOAT_T           { TFloat($1)  }
+    INT_T             { TInt $1     }
+  | FLOAT_T           { TFloat $1   }
   | STRING_T          { TString     }
   | BOOL_T            { TBool       }
-  | ID_T typeargs_opt { TId($1, $2) }
   | NONE_T            { TNone       }
 
-typeargs_opt:
-    /* empty */            { None               }
-  | LPAREN typeargs RPAREN { Some (List.rev $2) }
-
-typeargs:
-    expr                { [$1]   }
-  | typeargs COMMA expr { $3::$1 }
-
 type_:
-    typename                    { ScalarType($1)         }
+    typename                    { ScalarType $1          }
   | typename LBRACK RBRACK      { ArrayType($1, None)    }
   | typename LBRACK expr RBRACK { ArrayType($1, Some $3) }
 
@@ -120,10 +111,10 @@ expr_list:
   | expr_list COMMA expr { $3::$1 }
 
 expr:
-    INT    { LInt($1)    }
-  | FLOAT  { LFloat($1)  }
-  | STRING { LString($1) }
-  | BOOL   { LBool($1)   }
+    INT    { LInt $1     }
+  | FLOAT  { LFloat $1   }
+  | STRING { LString $1  }
+  | BOOL   { LBool $1    }
 
   | LBRACK expr_list RBRACK { LArray(List.rev $2) }
 
@@ -158,13 +149,12 @@ expr:
 
   | ID       LPAREN expr_list RPAREN { Call($1, List.rev $3)  }
 
-  | ID       { Id($1) }
-  | typename { EType($1) }
+  | ID       { Id $1  }
 
 block_stmt:
-    expr SEMICOLON                { Expr($1)         }
-  | var                           { LVar($1)         }
-  | RETURN expr SEMICOLON         { Return($2)       }
+    expr SEMICOLON                { Expr $1          }
+  | var                           { LVar $1          }
+  | RETURN expr SEMICOLON         { Return $2        }
   | FOR ID COMMA ID IN expr block { For($2,$4,$6,$7) }
   | WHILE expr block              { While($2,$3)     }
 
@@ -176,27 +166,8 @@ block:
     LBRACE block_stmts RBRACE { List.rev $2 }
   | LBRACE RBRACE             { []          }
 
-tblock_stmt:
-    var                   { Field($1) }
-  | expr SEMICOLON        { TExpr($1) }
-  | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK  ASSIGN expr SEMICOLON
-                          { TField( $3, Some $7, Some $10) }
-  | VAR LBRACK expr RBRACK COLON LBRACK expr RBRACK              SEMICOLON
-                          { TField( $3, Some $7, None   )  }
-  | VAR LBRACK expr RBRACK                           ASSIGN expr SEMICOLON
-                          { TField( $3, None,    Some $6)  }
-
-tblock_stmts:
-    tblock_stmt              { [$1] }
-  | tblock_stmts tblock_stmt { $2 :: $1 }
-
-tblock:
-    LBRACE tblock_stmts RBRACE { List.rev $2 }
-  | LBRACE RBRACE              { []          }
-
 program_decl:
-    TEMPLATE ID_T params_opt tblock          { Template($2, List.rev $3, $4) }
-  | FUNCTION ID params_opt COLON type_ block { Func($2, $5, List.rev $3, $6) }
+    FUNCTION ID params_opt COLON type_ block { Func($2, $5, List.rev $3, $6) }
   | var                                      { GVar($1)                      }
 
 program_decls_opt:

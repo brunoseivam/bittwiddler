@@ -15,12 +15,10 @@ and sx =
   | SLBool of bool
   | SLArray of sexpr list
   | SId of string
-  | SEType of ptype
   | SBinop of sexpr * op * sexpr
   | SUnop of uop * sexpr
   | SIf of sexpr * sstmt list * sstmt list
   | SCall of string * sexpr list
-  | STCall of ptype * sexpr list
 
 and sstmt =
     SLVar of svar (* local variable declaration *)
@@ -33,17 +31,10 @@ and svar = string * stype * sexpr option
 
 type sparam = string * stype
 
-type stemplate_item =
-    SField of svar
-  | STField of sexpr * sexpr option * sexpr option
-  | STExpr of sexpr
-
 type sfunc = string * stype * sparam list * sstmt list
-type stempl = string * sparam list * stemplate_item list
 
 type sprogram_decl =
     SFunc of sfunc
-  | STemplate of stempl
   | SGVar of svar (* global variable *)
 
 type sprogram = sprogram_decl list
@@ -72,22 +63,11 @@ let rec string_of_stype = function
         ^ "["
         ^ (match count with Some(e) -> string_of_sexpr e | None -> "")
         ^ "]"
-and string_of_ststmt = function
-    SField(v) -> (string_of_svar v) ^ ";"
-  | STField(e1, e2, e3) ->
-        let e1 = (string_of_sexpr e1) in
-        let e2 = (match e2 with Some e -> (string_of_sexpr e) | None -> "") in
-        let e3 = (match e3 with Some e -> (string_of_sexpr e) | None -> "") in
-        "STField(id=" ^ e1 ^ ", type=" ^ e2 ^ ", value=" ^ e3 ^ ");"
-  | STExpr(e) -> (string_of_sexpr e) ^ ";"
-
-and string_of_stblock b =
-    "{\n" ^ (String.concat "\n" (List.map string_of_ststmt b))
 
 and string_of_sstmt = function
-    SLVar(v) -> string_of_svar v ^ ";"
-  | SExpr(e) -> string_of_sexpr e ^ ";"
-  | SReturn(e) -> "return " ^ string_of_sexpr e ^ ";"
+    SLVar v    -> string_of_svar v ^ ";"
+  | SExpr e    -> string_of_sexpr e ^ ";"
+  | SReturn e  -> "return " ^ string_of_sexpr e ^ ";"
   | SFor(idx_sv, item_sv, e, b) ->
           "for "
           ^ string_of_svar idx_sv ^ ","
@@ -111,7 +91,6 @@ and string_of_sx = function
   | SLBool b -> string_of_bool b
   | SLArray lx -> "[" ^ (String.concat "," (List.map string_of_sexpr lx)) ^ "]"
   | SId id -> id
-  | SEType t -> "SEType(" ^ (string_of_ptype t) ^ ")"
   | SBinop(e1,Subscr,e2) ->
           string_of_sexpr e1 ^ "[" ^ string_of_sexpr e2 ^ "]"
   | SBinop(e1,op,e2) ->
@@ -125,9 +104,6 @@ and string_of_sx = function
   | SCall(id,el) ->
           id ^ " ("
           ^ (String.concat ", " (List.map string_of_sexpr el)) ^ ")"
-  | STCall(ptype,el) ->
-          "STCall(" ^ (string_of_ptype ptype) ^ ", params=["
-          ^ (String.concat ", " (List.map string_of_sexpr el)) ^ "])"
 
 and string_of_sexpr (stype,sx) =
     "(" ^ string_of_sx sx ^ "):" ^ string_of_stype stype
@@ -144,10 +120,6 @@ let string_of_spdecl = function
         "func " ^ id ^ ":" ^ string_of_stype stype
         ^ " (" ^ (String.concat ", " (List.map string_of_sparam params))
         ^ ")\n" ^ string_of_sblock body
-  | STemplate(id, params, body) ->
-        "STemplate(" ^ id
-        ^ ", params=[" ^ (String.concat ", " (List.map string_of_sparam params))
-        ^ "])\n" ^ (string_of_stblock body)
   | SGVar(v) ->
         "SGVar(" ^ (string_of_svar v) ^ ")"
 

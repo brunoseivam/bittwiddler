@@ -11,10 +11,8 @@ type ptype =
   | TFloat of int
   | TString
   | TBool
-  | TId of string * (expr list) option
   | TAInt (* 'abstract' integer (no size info) *)
   | TAFloat (* 'abstract' float (no size info) *)
-  | TType (* the type of types *)
   | TNone
 
 and var =
@@ -34,13 +32,11 @@ and expr =
   | LBool of bool
   | LArray of expr list
   | Id of string
-  | EType of ptype
   | Binop of expr * op * expr
   | Unop of uop * expr
   | Match of expr * (expr option * stmt list) list
   | Cond of (expr option * stmt list) list
   | Call of string * expr list
-  | TCall of ptype * expr list
 
 and type_ =
     ScalarType of ptype
@@ -49,14 +45,8 @@ and type_ =
 and param =
     Param of string * type_
 
-type template_item =
-    Field of var
-  | TField of expr * expr option * expr option
-  | TExpr of expr
-
 type program_decl =
     Func of string * type_ * param list * stmt list
-  | Template of string * param list * template_item list
   | GVar of var (* global variable *)
 
 type program = Program of program_decl list * stmt list
@@ -73,20 +63,13 @@ let string_of_op = function
 let string_of_uop = function
     BwNot -> "~" | Not -> "!" | Neg -> "-"
 
-let rec string_of_targs = function
-        Some(args) ->
-            "(" ^ (String.concat "," (List.map string_of_expr args)) ^ ")"
-      | None -> ""
-
-and string_of_ptype = function
+let rec string_of_ptype = function
     TInt(u, w) -> (if u then "uint" else "int") ^ string_of_int w
   | TFloat(w) -> "float" ^ string_of_int w
-  | TId(id, args) -> id ^ string_of_targs args
   | TString -> "string"
   | TBool -> "bool"
   | TAInt -> "int"
   | TAFloat -> "float"
-  | TType -> "Type"
   | TNone -> "None"
 
 and string_of_expr = function
@@ -95,7 +78,6 @@ and string_of_expr = function
   | LString(s) -> "\"" ^ s ^ "\""
   | LBool(b) -> string_of_bool b
   | LArray(a) -> "[" ^ String.concat "," (List.map string_of_expr a) ^ "]"
-  | EType(t) -> string_of_ptype t
   | Id(id) -> id
   | Binop(e1, Subscr, e2) ->
         string_of_expr e1 ^ "[" ^ string_of_expr e2 ^ "]"
@@ -113,24 +95,20 @@ and string_of_expr = function
   | Cond(conds) -> string_of_cond conds
   | Call(id, exprs) ->
         id ^ "(" ^ String.concat "," (List.map string_of_expr exprs) ^ ")"
-  | TCall(ptype,exprs) ->
-        string_of_ptype ptype
-        ^ "(" ^ String.concat "," (List.map string_of_expr exprs) ^ ")"
 
-and string_of_block = function
-        lines ->
-            "{\n"
-            ^ String.concat "\n" (List.map string_of_block_line lines)
-            ^ "\n}"
+and string_of_block stmts =
+    "{\n"
+    ^ String.concat "\n" (List.map string_of_stmt stmts)
+    ^ "\n}"
 
-and string_of_block_line = function
-    LVar(v) -> string_of_var v ^ ";"
+and string_of_stmt = function
+    LVar v -> string_of_var v ^ ";"
   | While(e, b) -> "while " ^ string_of_expr e ^ string_of_block b
   | For(id1, id2, e, b) ->
         "for " ^ id1 ^ ", " ^ id2 ^ " in " ^ string_of_expr e ^ " "
         ^ string_of_block b
-  | Expr(e) -> string_of_expr e ^ ";"
-  | Return(e) -> "return " ^ string_of_expr e ^ ";"
+  | Expr e -> string_of_expr e ^ ";"
+  | Return e -> "return " ^ string_of_expr e ^ ";"
 
 and string_of_arm = function
         (Some e, b) -> string_of_expr e ^ " -> " ^ string_of_block b
@@ -152,50 +130,29 @@ and string_of_else = function
         ^ string_of_block b
 
 and string_of_type = function
-    ScalarType(ptype) -> string_of_ptype ptype
+    ScalarType ptype -> string_of_ptype ptype
   | ArrayType(ptype, count) ->
         string_of_ptype ptype
         ^ "["
         ^ (match count with Some(e) -> string_of_expr e | None -> "")
         ^ "]"
-and
-    string_of_param = function
+
+and string_of_param = function
     Param(id, type_) -> id ^ ":" ^ string_of_type type_
-and
-    string_of_params = function
+
+and string_of_params = function
     []     -> ""
   | params -> "(" ^ String.concat "," (List.map string_of_param params) ^ ") "
-and
-    string_of_var = function
+
+and string_of_var = function
     Var(id, type_, expr) ->
         "var "
         ^ id
         ^ (match type_ with Some(t) -> " : " ^ string_of_type t | None -> "")
         ^ (match expr with Some(e) -> " = " ^ string_of_expr e | None -> "")
 
-
-let string_of_tblock_line = function
-    Field(v) -> string_of_var v ^ ";"
-  | TExpr(e) -> string_of_expr e ^ ";"
-  | TField(vid, vtype, vval) ->
-        "var [ " ^ string_of_expr vid ^ " ]"
-        ^ (match vtype with Some(t) -> " : [ " ^ string_of_expr t ^ " ]"
-                         | None -> "")
-        ^ (match vval with Some(v) -> " = " ^ string_of_expr v
-                        | None -> "")
-
-let string_of_tblock = function
-        lines ->
-            "{\n"
-            ^ String.concat "\n" (List.map string_of_tblock_line lines)
-            ^ "\n}"
-
 let string_of_pdecl = function
-    Template(id, params, block) ->
-        "template " ^ id ^ " "
-        ^ string_of_params params
-        ^ string_of_tblock block
-  | Func(id, type_, params, block) ->
+    Func(id, type_, params, block) ->
         "func " ^ id ^ " "
         ^ string_of_params params
         ^ ":" ^ string_of_type type_ ^ " "
