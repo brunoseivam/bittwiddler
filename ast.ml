@@ -3,7 +3,7 @@
 type op =
     Plus | Minus | Times | Div | Rem | LShift | RShift
   | BwOr | BwAnd | And | Or | Lt | LtEq | Eq | NEq | GtEq | Gt
-  | Subscr | Access | Assign
+  | Subscr | Assign
 type uop = BwNot | Not | Neg
 
 type ptype =
@@ -58,7 +58,7 @@ let string_of_op = function
   | Rem   -> "%"  | LShift -> "<<"  | RShift -> ">>" | BwOr   -> "|"
   | BwAnd -> "&"  | And    -> "and" | Or     -> "or" | Lt     -> "<"
   | LtEq  -> "<=" | Eq     -> "=="  | NEq    -> "!=" | GtEq   -> ">="
-  | Gt    -> ">"  | Subscr -> "[]"  | Access -> "."  | Assign -> "="
+  | Gt    -> ">"  | Subscr -> "[]"  | Assign -> "="
 
 let string_of_uop = function
     BwNot -> "~" | Not -> "!" | Neg -> "-"
@@ -81,8 +81,6 @@ and string_of_expr = function
   | Id(id) -> id
   | Binop(e1, Subscr, e2) ->
         string_of_expr e1 ^ "[" ^ string_of_expr e2 ^ "]"
-  | Binop(e1, Access, e2) ->
-        string_of_expr e1 ^ "." ^ string_of_expr e2
   | Binop(e1, op, e2) ->
           string_of_expr e1
           ^ " " ^ string_of_op op

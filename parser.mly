@@ -139,7 +139,6 @@ expr:
   |      NOT    expr { Unop(Not,   $2) }
 
   | expr LBRACK expr RBRACK { Binop($1, Subscr, $3) }
-  | expr DOT expr           { Binop($1, Access, $3) }
   | expr ASSIGN expr        { Binop($1, Assign, $3) }
 
   | LPAREN expr RPAREN { $2 }

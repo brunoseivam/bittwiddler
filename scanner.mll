@@ -54,7 +54,7 @@ rule token = parse
     | "if"       { IF        } | "else"   { ELSE   }
     | "var"      { VAR       } | "elif"   { ELIF   }
 
-    | '.' { DOT       } | ','  { COMMA    }
+    | ',' { COMMA     }
     | ':' { COLON     } | '_'  { WILDCARD }
     | ';' { SEMICOLON } | '='  { ASSIGN   }
 
