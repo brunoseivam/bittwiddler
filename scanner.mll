@@ -16,8 +16,7 @@ let digit  = ['0'-'9']
 let ucase  = ['A'-'Z']
 let lcase  = ['a'-'z']
 let letter = ['A'-'Z' 'a'-'z' '_']
-let id     = (lcase | '_')(letter|digit)*
-let type_  = (ucase)(letter|digit)*
+let id     = (letter | '_')(letter|digit)*
 
 let num  = digit
 let dot  = '.'
@@ -95,9 +94,6 @@ rule token = parse
 
     (* Identifier *)
     | id as id  { ID(id) }
-
-    (* Type Identifier *)
-    | type_ as type_ { ID_T(type_) }
 
     | eof   { EOF }
 

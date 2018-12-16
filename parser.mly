@@ -10,7 +10,6 @@
 %token AND OR NOT
 %token LT LTEQ EQ NEQ GT GTEQ
 %token <string> ID
-%token <string> ID_T
 %token <bool * int> INT_T
 %token <int> FLOAT_T
 %token STRING_T
