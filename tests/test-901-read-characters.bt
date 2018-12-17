@@ -1,4 +1,7 @@
-func read_character:None() {
+# Input data generated with
+# ./gen_bin_data u8 2 s "Barry" u16 10 s "Ann" u16 55
+
+func read_character():None {
     var name : string;
     var level : uint16;
 
