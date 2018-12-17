@@ -253,6 +253,8 @@ struct __bt_str *__bt_str_read(void) {
         }
     }
 
+    buf[n] = '\0';
+
     return __bt_str_new(buf);
 }
 
@@ -262,22 +264,16 @@ struct __bt_str *__bt_str_read(void) {
  *
  */
 void __bt_read(void *target, size_t n) {
-    errno = 0;
-    int r = read(STDIN_FILENO, target, n);
+    size_t r = fread(target, 1, n, stdin);
 
     if (r == n)
         return;
 
-    const char *err;
-    if (r < 0)
-        err = strerror(errno);
-    else if (r == 0)
-        err = "reached EOF";
-    else
-        err = "";
+    const char *err = ".";
+    if (feof(stdin))
+        err = ": reached EOF";
 
-    fprintf(stderr, "Failed to read %lu bytes from standard input: %s\n",
-            n, err);
+    fprintf(stderr, "Failed to read %lu bytes from standard input%s\n", n, err);
     fprintf(stderr, "Aborting...\n");
     exit(1);
 }
