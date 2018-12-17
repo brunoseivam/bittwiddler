@@ -1,0 +1,18 @@
+func read_character:None() {
+    var name : string;
+    var level : uint16;
+
+    emit("  \"{name}\": {\"level\": {level} }\n");
+}
+
+main {
+    var num_chars : uint8;
+
+    emit("{\n");
+    var i : uint8 = 0;
+    while i < num_chars {
+        read_character();
+        i = i + 1;
+    }
+    emit("}\n");
+}

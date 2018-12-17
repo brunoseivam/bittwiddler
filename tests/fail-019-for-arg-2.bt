@@ -1,1 +1,4 @@
-Fatal error: exception Parsing.Parse_error
+main {
+    var x = ["a", "b", "c"];
+    for i, e in x {}
+}

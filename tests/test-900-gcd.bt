@@ -11,6 +11,6 @@ main {
     var b : uint64 = 5;
     var r1 : uint64 = gcd(a, b);
     var r2 : uint64 = gcd(b, a);
-    emit('gcd({a}, {b}) = {r1}\n');
-    emit('gcd({b}, {a}) = {r2}\n');
+    emit("gcd({a}, {b}) = {r1}\n");
+    emit("gcd({b}, {a}) = {r2}\n");
 }

@@ -32,7 +32,6 @@ let bin_lit = sign?"0b" ['0' '1']+
 (* String literal parsing copied, with modifications, from the DECAF
  * project (Spring 2017 *)
 let ascii_dquote = [' '-'!' '#'-'[' ']'-'~'] (* ascii without double quote *)
-let ascii_squote = [' '-'&' '('-'[' ']'-'~'] (* ascii without single quote *)
 let escape = '\\' ['\\' ''' '"' 'n' 'r' 't']
 
 rule token = parse
@@ -90,7 +89,6 @@ rule token = parse
     | "true"                                { BOOL(true)         }
     | "false"                               { BOOL(false)        }
     | '"' ((ascii_dquote|escape)* as s) '"' { STRING(unescape s) }
-    | ''' ((ascii_squote|escape)* as s) ''' { STRING(unescape s) }
 
     (* Identifier *)
     | id as id  { ID(id) }

@@ -10,14 +10,14 @@ main {
     var two = "2";
     var three = "3";
 
-    var one_two_three = one + ':' + two + ':' + three;
+    var one_two_three = one + ":" + two + ":" + three;
 
     emit("{one_two_three}\n");
 
     var a = "127";
     var b = "0";
     var c = "1";
-    var home = a + '.' + b + '.' + b + '.' + c;
+    var home = a + "." + b + "." + b + "." + c;
 
     emit("home={home}\n");
 }

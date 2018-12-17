@@ -4,9 +4,7 @@ main {
     var c_i32 : int32 = 0;
     var c_bool : bool = false;
 
-    # Deliberate mixed use of ' and " delimited strings
-
-    emit('Binary operations on integers\n');
+    emit("Binary operations on integers\n");
     c_i32 = a_i32 + b_i32;
     emit("(int32) {a_i32} + {b_i32} = {c_i32}\n");
     c_i32 = a_i32 - b_i32;
@@ -42,19 +40,19 @@ main {
     c_bool = a_i32 != b_i32;
     emit("(int32) {a_i32} != {b_i32} = {c_bool}\n");
 
-    emit('\nUnary operations on integers\n');
+    emit("\nUnary operations on integers\n");
     c_i32 = ~a_i32;
     emit("(int32) ~{a_i32} = {c_i32}\n");
     c_bool = not (a_i32!=0);
     emit("(int32) not {a_i32} = {c_bool}\n");
     c_i32 = -a_i32;
-    emit('(int32) -{a_i32} = {c_i32}\n');
+    emit("(int32) -{a_i32} = {c_i32}\n");
 
     var a_f64 : float64 = 3.0;
     var b_f64 : float64 = 2.0;
     var c_f64 : float64 = 0.0;
 
-    emit('\nBinary operations on floats\n');
+    emit("\nBinary operations on floats\n");
     c_f64 = a_f64 + b_f64;
     emit("(float64) {a_f64} + {b_f64} = {c_f64}\n");
     c_f64 = a_f64 - b_f64;
@@ -76,7 +74,7 @@ main {
     c_bool = a_f64 != b_f64;
     emit("(float64) {a_f64} != {b_f64} = {c_bool}\n");
 
-    emit('\nUnary operations on floats\n');
+    emit("\nUnary operations on floats\n");
     c_f64 = -a_f64;
-    emit('(float64) -{a_f64} = {c_f64}\n');
+    emit("(float64) -{a_f64} = {c_f64}\n");
 }

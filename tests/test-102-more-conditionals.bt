@@ -9,7 +9,7 @@ main {
     var y : int32 = -100;
 
     var sign_of_y : int32 = if y > 0 { 1; } elif y < 0 { -1; } else { 0; };
-    emit('sign of {y} is {sign_of_y}\n');
+    emit("sign of {y} is {sign_of_y}\n");
 
     var forty_two : uint32 = 0x42;
 
