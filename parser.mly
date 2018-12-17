@@ -61,7 +61,7 @@ params:
   | params COMMA param { $3 :: $1 }
 
 params_opt:
-    /* empty */          { [] }
+    LPAREN RPAREN        { [] }
   | LPAREN params RPAREN { $2 }
 
 var:

@@ -413,7 +413,7 @@ let translate prog =
             (builder, L.build_call __bt_read_arr [|n'; elsz|]
                                    "__bt_read_arr" builder)
 
-      | (_, SCall(fname, args)) ->
+      | (t, SCall(fname, args)) ->
             let args' = List.map (build_expr ctx builder) args in
             let args' = Array.of_list (List.map snd args') in
 
@@ -423,8 +423,9 @@ let translate prog =
                     with Not_found ->
                         raise (Failure ("function " ^ fname ^ " not found"))
                 in
-                let result = if L.type_of lf = void_t then ""
-                    else fname ^ "_result"
+                let result = match t with
+                    SScalar A.TNone -> ""
+                  | _ -> fname ^ "_result"
                 in
                 L.build_call lf args' result builder
             in
