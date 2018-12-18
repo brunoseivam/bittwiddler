@@ -18,5 +18,4 @@ ulimit -t 30
 $BITTWIDDLER $1 | $LLC -relocation-model=pic > $1.s
 $CC -o $1.exe $1.s runtime.o
 
-./$1.exe
-rm $1.s $1.exe
+rm $1.s
