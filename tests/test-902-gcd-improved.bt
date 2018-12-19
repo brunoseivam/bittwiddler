@@ -1,0 +1,15 @@
+func gcd(a:uint64, b:uint64):uint64  {
+    return match b {
+        0 -> { a;             }
+        _ -> { gcd(b, a % b); }
+    };
+}
+
+main {
+    var a : uint64;
+    var b : uint64;
+    var r1 = gcd(a, b);
+    var r2 = gcd(b, a);
+    emit("gcd({a}, {b}) = {r1}\n");
+    emit("gcd({b}, {a}) = {r2}\n");
+}
